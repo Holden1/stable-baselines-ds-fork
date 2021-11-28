@@ -1,0 +1,47 @@
+originalOnOpenProcess=onOpenProcess;
+t=createTimer(nil)
+
+
+
+
+function startTimer()
+
+  t.OnTimer=debugger_onBreakpoint
+  t.Interval=100
+  t.Enabled=true
+end
+
+
+function debugger_onBreakpoint()
+    addList=getAddressList()
+
+    printList= {"targetedEntityHp","targetedEntityX","targetedEntityY","targetedEntityZ","targetedEntityAngle",
+                "targetComboAttack","targetAttack1","targetAttack2","targetMovement1","targetMovement2",
+                "targetAnimationName",
+                "heroHp","heroX","heroY","heroSp","heroZ","heroAngle","targetLock","locationArea"}
+
+    file = io.open(".\\gameInfo.txt", "w")
+    currentHeritage={}
+    currentHeritageCounters={}
+    --Purposefully skip first element
+    for i=1,#printList do
+        record=addList.getMemoryRecordByDescription(printList[i])
+
+                      if i ~= #printList
+                      then
+                          file:write(record.Description,"::",record.Value,";;")
+                      else
+                          file:write(record.Description,"::",record.Value)
+                      end
+    end
+
+
+    file:close()
+    --end
+
+    return 1
+
+end
+
+
+startTimer()
