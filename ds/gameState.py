@@ -607,7 +607,7 @@ class dsgym:
         charAnimationStartIndex=45
         
         #binary encode current and prev animations
-        for j in range(self.num_prev_animations):
+        for j in range(num_prev_animations):
             bossAnimationAsBinary = bin_array(self.prev_boss_animations[j],7)
             charAnimationAsBinary = bin_array(self.prev_char_animations[j],7)
             for i in range(7):
