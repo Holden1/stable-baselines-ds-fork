@@ -20,7 +20,7 @@ import pickle
 BOSSAREA="400100"
 DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
 BONFIREAREA="400101"
-FRAME_DIFF=0.2
+FRAME_DIFF=0.1
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
 NO_ACTION=[0,0]
@@ -42,9 +42,9 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=60
+num_state_scalars=74
 num_history_states=5
-num_prev_animations=1
+num_prev_animations=2
 
 parryAnimationName='DamageParryEnemy1' 
 
@@ -605,22 +605,15 @@ class dsgym:
         stateToAdd[43]=self.timesinceherolosthp
         stateToAdd[44]=self.timesinceheroparry
         charAnimationStartIndex=45
-        #Allow for 100 char animations and 100 boss animations
-        charAnimationLength=100
-        bossAnimationStartIndex= charAnimationStartIndex+charAnimationLength
         
-        #One hot encode prev and current animations
-        #charAnimationIndex=charAnimationStartIndex+self.prev_char_animations[0]
-        #stateToAdd[charAnimationIndex]=1
-        #bossAnimationIndex=bossAnimationStartIndex+self.prev_boss_animations[0]
-        #stateToAdd[bossAnimationIndex]=1
-        #Allow for 128 char animations and 128 boss animations
-        bossAnimationAsBinary = bin_array(self.prev_boss_animations[0],7)
-        charAnimationAsBinary = bin_array(self.prev_char_animations[0],7)
-        for i in range(7):
-            stateToAdd[charAnimationStartIndex+i]=bossAnimationAsBinary[i]
-        for i in range(7):
-            stateToAdd[charAnimationStartIndex+7+i]=charAnimationAsBinary[i]          
+        #binary encode current and prev animations
+        for j in range(self.num_prev_animations):
+            bossAnimationAsBinary = bin_array(self.prev_boss_animations[j],7)
+            charAnimationAsBinary = bin_array(self.prev_char_animations[j],7)
+            for i in range(7):
+                stateToAdd[charAnimationStartIndex+i+(14*j)]=bossAnimationAsBinary[i]
+            for i in range(7):
+                stateToAdd[charAnimationStartIndex+7+i+(14*j)]=charAnimationAsBinary[i]          
 
         if self.fill_frame_buffer:
             for _ in range(num_history_states):

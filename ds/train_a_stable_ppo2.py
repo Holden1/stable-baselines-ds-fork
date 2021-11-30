@@ -19,8 +19,8 @@ def train(num_timesteps,model_to_load):
         policy=MlpPolicy
         lr=3e-4
 
-        model = PPO2(policy=policy, env=env, n_steps=256, nminibatches=1, lam=0.95, gamma=0.95, noptepochs=10,
-                 ent_coef=0.01, learning_rate=linear_schedule(lr), cliprange=0.2)
+        model = PPO2(policy=policy, env=env, n_steps=128, nminibatches=2, lam=0.95, gamma=0.99, noptepochs=4,
+                 ent_coef=0.01, learning_rate=lr, cliprange=0.2)
         if model_to_load:
             env = DummyVecEnv([dsgym])
             env = VecNormalize.load(model_to_load ,env)
