@@ -21,7 +21,7 @@ import socket
 BOSSAREA="400100"
 DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
 BONFIREAREA="400101"
-FRAME_DIFF=0.1
+FRAME_DIFF=0.2
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
 NO_ACTION=[0,0]
@@ -197,6 +197,7 @@ class dsgym:
 
 
     def teleToBoss(self):
+        print("Teleporting to boss")
         self.setDsInFocus()
         time.sleep(5)
         for i in range(50):
@@ -251,8 +252,11 @@ class dsgym:
                 loglines=data.decode("utf-8")
             except:
                 print("Couldn't read from socket, will retry connecting")
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.socket.connect((HOST, PORT))
+                try:
+                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.socket.connect((HOST, PORT))
+                except:
+                    print("Couldn't reconnect")
                 continue
             if not loglines or len(loglines.split(";;"))<22:
                 continue
