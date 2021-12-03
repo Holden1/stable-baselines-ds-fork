@@ -15,6 +15,7 @@ import threading
 from gym import spaces
 import math
 import pickle
+import socket
 
 
 BOSSAREA="400100"
@@ -48,6 +49,10 @@ num_prev_animations=2
 
 parryAnimationName='DamageParryEnemy1' 
 
+# Cheat engine socket info
+HOST = '127.0.0.1'  # The server's hostname or IP address
+PORT = 31000        # The port used by the server     
+
 def parse_val(value):
     try:
         val=float(value)
@@ -71,6 +76,8 @@ class dsgym:
         self.set_initial_state()      
         self.spawnCheckRespondingThread()
         self.logfile = open("gameInfo.txt", "r", encoding="utf-8")
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((HOST, PORT))
 
         self.paused=False
 
@@ -237,11 +244,15 @@ class dsgym:
         start_read=time.time()
 
         while (hasRead==False):
-            self.logfile.seek(0)
             try:
-                loglines = self.logfile.readline()
+                self.socket.send(b'Hello, world \n')
+                data = self.socket.recv(1024)
+                #print('Received', repr(data))
+                loglines=data.decode("utf-8")
             except:
-                print("Couldn't read from file, will retry")
+                print("Couldn't read from socket, will retry connecting")
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.connect((HOST, PORT))
                 continue
             if not loglines or len(loglines.split(";;"))<22:
                 continue
