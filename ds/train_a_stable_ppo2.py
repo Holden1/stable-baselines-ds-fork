@@ -15,7 +15,7 @@ def train(num_timesteps,model_to_load):
     
     try:
         env = DummyVecEnv([dsgym])
-        env = VecNormalize(env)
+        #env = VecNormalize(env)
         policy=MlpPolicy
         lr=3e-4
 
@@ -23,7 +23,7 @@ def train(num_timesteps,model_to_load):
                  ent_coef=0.01, learning_rate=linear_schedule(lr), cliprange=0.2)
         if model_to_load:
             env = DummyVecEnv([dsgym])
-            env = VecNormalize.load(model_to_load ,env)
+            #env = VecNormalize.load(model_to_load ,env)
             model = model.load(model_to_load)
             model.set_env(env)
             print("Loaded model from: ",model_to_load)
