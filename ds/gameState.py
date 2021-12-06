@@ -78,6 +78,7 @@ class dsgym:
         self.logfile = open("gameInfo.txt", "r", encoding="utf-8")
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((HOST, PORT))
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 
         self.paused=False
 
@@ -255,6 +256,7 @@ class dsgym:
                 try:
                     self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.socket.connect((HOST, PORT))
+                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
                 except:
                     print("Couldn't reconnect")
                 continue
@@ -620,6 +622,8 @@ class dsgym:
         stateToAdd[43]=self.timesinceherolosthp
         stateToAdd[44]=self.timesinceheroparry
         charAnimationStartIndex=45
+
+        print("Boss anim counter: ", stateDict["BossAnimationCounter"], " char counter: ",stateDict["HeroAnimationCounter"])
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):

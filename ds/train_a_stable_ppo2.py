@@ -25,6 +25,7 @@ def train(num_timesteps,model_to_load):
             env = DummyVecEnv([dsgym])
             #env = VecNormalize.load(model_to_load ,env)
             model = model.load(model_to_load)
+            env.load(model_to_load)
             model.set_env(env)
             print("Loaded model from: ",model_to_load)
             model.set_learning_rate_func(linear_schedule_start_zero(lr))

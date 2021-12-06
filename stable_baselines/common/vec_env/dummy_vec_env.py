@@ -116,8 +116,7 @@ class DummyVecEnv(VecEnv):
         indices = self._get_indices(indices)
         return [self.envs[i] for i in indices]
     
-    @staticmethod
-    def load(load_path, venv):
+    def load(self,load_path):
         """
         Loads a saved VecNormalize object.
 
@@ -125,7 +124,7 @@ class DummyVecEnv(VecEnv):
         :param venv: the VecEnv to wrap.
         :return: (VecNormalize)
         """
-        vec_normalize.env_method("load_state",load_path)
+        self.env_method("load_state",load_path)
         return self
 
     def save(self, save_path):
