@@ -622,8 +622,6 @@ class dsgym:
         stateToAdd[43]=self.timesinceherolosthp
         stateToAdd[44]=self.timesinceheroparry
         charAnimationStartIndex=45
-
-        print("Boss anim counter: ", stateDict["BossAnimationCounter"], " char counter: ",stateDict["HeroAnimationCounter"])
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):
