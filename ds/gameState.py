@@ -68,7 +68,7 @@ class dsgym:
     action_space=spaces.MultiDiscrete([5,6])
     metadata=None
     def __init__(self):
-        with open("bossconfigs/Iudex.yaml", "r") as ymlfile:
+        with open("bossconfigs/Vordt.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
