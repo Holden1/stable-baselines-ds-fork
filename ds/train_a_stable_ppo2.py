@@ -16,7 +16,7 @@ def train(num_timesteps,model_to_load):
     try:
         env = DummyVecEnv([dsgym])
         #env = VecNormalize(env)
-        policy=MlpLstmPolicy
+        policy=MlpPolicy
         lr=3e-4
 
         model = PPO2(policy=policy, env=env, n_steps=256, nminibatches=1, lam=0.95, gamma=0.99, noptepochs=10,
