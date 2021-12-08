@@ -1,16 +1,16 @@
 name: "Vordt of the boreal valley"
 base_hp: 1328
 parry_animation: "cantbeparried"
-boss_area: "300004"
-bonfire_area: "300007"
+boss_area: "300007"
+bonfire_area: "300001"
 bonfire_id: 3002950 #High Wall of Lothric
 fog_gate_teleport:
- heroAngle: 0.01
- heroX: 28.07
- heroZ: -25.49
- heroY: 49.76
+ heroAngle: 0.10
+ heroX: 27.73
+ heroZ: -25.64
+ heroY: 45.86
 boss_teleport:
- heroAngle: 3.14
- heroX: 27.75
- heroZ: -25.01
- heroY: 3.21
+ heroAngle: 0.01
+ heroX: 29.43
+ heroZ: -26.16
+ heroY: 31.69

@@ -203,7 +203,10 @@ class dsgym:
         for i in range(50):
             self.waitForUnpause()
             self.check_responding_lock()
+            PressAndFastRelease(F1)
             self.setCeState(self.boss_config["fog_gate_teleport"])
+            PressAndFastRelease(Q)
+            PressAndFastRelease(F1)
             time.sleep(1)
             PressAndRelease(U)#Normal speed
             PressAndRelease(E)
@@ -215,6 +218,7 @@ class dsgym:
                 self.setCeState(self.boss_config["boss_teleport"])
                 time.sleep(1)
                 PressAndRelease(Q)
+                PressAndFastRelease(F2)
                 PressAndFastRelease(T)
                 break
             elif i%20:

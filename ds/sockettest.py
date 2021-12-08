@@ -6,4 +6,4 @@ HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 31000        # The port used by the server
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
-    s.send(b'last bonfire=4002951 \n')
+    s.send(b'heroAngle=0.1 heroX=27.96 heroZ=-26.16 heroY=37.69 \n')
