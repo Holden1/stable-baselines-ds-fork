@@ -1,0 +1,16 @@
+name: "Iudex Gundyr"
+base_hp: 1037
+parry_animation: "DamageParryEnemy1"
+boss_area: "400100"
+bonfire_area: "400101"
+bonfire_id: 4002951 #Cemetery of Ash
+fog_gate_teleport:
+ heroAngle: -2.83
+ heroX: 125.85
+ heroZ: -64.05
+ heroY: 559.13
+boss_teleport:
+ heroAngle: -2.81
+ heroX: 139.01
+ heroZ: -69.27
+ heroY: 588.01
