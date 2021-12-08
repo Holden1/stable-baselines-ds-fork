@@ -16,18 +16,16 @@ from gym import spaces
 import math
 import pickle
 import socket
+import yaml
 
 
-BOSSAREA="400100"
 DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
-BONFIREAREA="400101"
 FRAME_DIFF=0.2
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
 NO_ACTION=[0,0]
 
 HERO_BASE_HP=454
-LUDEX_BASE_HP=1037
 HEALTH_REWARD_MULTIPLIER=2.5
 REWARD_DISTANCE=5
 ESTUS_NEGATIVE_REWARD=0.3
@@ -70,6 +68,8 @@ class dsgym:
     action_space=spaces.MultiDiscrete([5,6])
     metadata=None
     def __init__(self):
+        with open("bossconfigs/Iudex.yaml", "r") as ymlfile:
+            self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
         self.best_so_far=-100
@@ -79,7 +79,6 @@ class dsgym:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((HOST, PORT))
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-
         self.paused=False
 
     def set_initial_state(self):
@@ -90,7 +89,7 @@ class dsgym:
         self.fill_frame_buffer=True
         self.episode_rew=0
         self.episode_len=0
-        self.bossHpLastFrame=LUDEX_BASE_HP
+        self.bossHpLastFrame=self.boss_config["base_hp"]
         self.bossAnimationLastFrame='??'
         self.bossAnimationFrameCount=0
         self.charHpLastFrame=HERO_BASE_HP
@@ -187,7 +186,7 @@ class dsgym:
                             iter+=1
                             stateDict=self.readState()
 
-                            if(stateDict[areaKey]==BONFIREAREA):
+                            if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
                                 break #we are in game
 
                         time.sleep(5)
@@ -198,32 +197,34 @@ class dsgym:
 
 
     def teleToBoss(self):
-        print("Teleporting to boss")
+        print("Teleporting to",self.boss_config["name"])
         self.setDsInFocus()
         time.sleep(5)
         for i in range(50):
             self.waitForUnpause()
             self.check_responding_lock()
-            PressAndRelease(F1)
+            self.setCeState(self.boss_config["fog_gate_teleport"])
+            time.sleep(1)
             PressAndRelease(U)#Normal speed
             PressAndRelease(E)
             PressAndRelease(E)#Twice, bloodstain can be at entrance
             time.sleep(2)
             #Check whether we have entered boss area
             stateDict=self.readState()
-            if(stateDict[areaKey]==BOSSAREA):
-                PressAndRelease(F2)
+            if(stateDict[areaKey]==self.boss_config["boss_area"]):
+                self.setCeState(self.boss_config["boss_teleport"])
+                time.sleep(1)
                 PressAndRelease(Q)
                 PressAndFastRelease(T)
                 break
             elif i%20:
                 print("Tried 20 times, killing self and resetting boss")
-                PressAndRelease(F3)
+                self.suicide_and_set_bonfire()
                 time.sleep(20)
 
         else:   #For loop else, not if else
                 #didn't get to boss area in many tries, commit sudoku and kill both processes
-            PressAndRelease(F3)
+            self.suicide_and_set_bonfire()
             print("Couldn't get to boss in 50 tries, something wrong, killing processes as well")
             self.kill_processes()
 
@@ -238,7 +239,30 @@ class dsgym:
             self.check_responding_lock()
         else:
             time.sleep(1)
+    def suicide_and_set_bonfire(self):
+        self.setCeState({"LastBonfire": self.boss_config["bonfire_id"]})
+        PressAndRelease(F3)
 
+    def setCeState(self,dict):
+        str_to_send = ""
+        hasSent=False
+        for key,value in dict.items():
+            str_to_send+=str(key)+"="+str(value)+" "
+        str_to_send+="\n"
+        while (hasSent==False):
+            try:
+                print("Trying to send: ",str_to_send)
+                self.socket.send(bytes(str_to_send,"utf-8"))
+            except BaseException as err:
+                print("Couldn't send to socket, will retry connecting , err: ",err)
+                try:
+                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.socket.connect((HOST, PORT))
+                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+                except:
+                    print("Couldn't reconnect")
+                continue
+            hasSent=True
 
 
     def readState(self):
@@ -247,7 +271,7 @@ class dsgym:
 
         while (hasRead==False):
             try:
-                self.socket.send(b'Hello, world \n')
+                self.socket.send(b'getState \n')
                 data = self.socket.recv(1024)
                 #print('Received', repr(data))
                 loglines=data.decode("utf-8")
@@ -320,7 +344,7 @@ class dsgym:
         self.ensure_framerate()
         stateDict = self.readState()
         #Check if we died
-        if(stateDict[charHpKey]=="0" or stateDict[areaKey]==BONFIREAREA or stateDict[areaKey]=="??"):
+        if(stateDict[charHpKey]=="0" or stateDict[areaKey]==self.boss_config["bonfire_area"] or stateDict[areaKey]=="??"):
             #Unpause game and wait for hp>0
             self.releaseAll()
             PressAndRelease(U)
@@ -337,7 +361,7 @@ class dsgym:
                 time.sleep(5)
                 reward=1
             PressAndRelease(U)
-            PressAndRelease(F3)
+            self.suicide_and_set_bonfire()
             
         #Check if lost target on boss
         elif stateDict["targetLock"]=="0":
@@ -351,7 +375,7 @@ class dsgym:
         
         if stateDict[bossHpKey]!="??" and self.bossHpLastFrame>int(stateDict[bossHpKey]):
             hpdiff=self.bossHpLastFrame-int(stateDict[bossHpKey])
-            reward+=(hpdiff/LUDEX_BASE_HP)*HEALTH_REWARD_MULTIPLIER
+            reward+=(hpdiff/self.boss_config["base_hp"])*HEALTH_REWARD_MULTIPLIER
             self.timesincebosslosthp=0
         else:
             self.timesincebosslosthp = self.timesincebosslosthp+1
