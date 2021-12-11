@@ -33,7 +33,7 @@ PARRY_REWARD=0.1
 TIMESTEPS_DEFENSIVE_BEHAVIOR=200
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
 
-start_time=-1
+
 not_responding_lock=threading.Lock()
 
 areaKey="locationArea"
@@ -41,7 +41,7 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=74
+num_state_scalars=76
 num_history_states=5
 num_prev_animations=2
 
@@ -72,14 +72,17 @@ class dsgym:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
+        self.stateDict={}
         self.best_so_far=-100
         self.set_initial_state()      
         self.spawnCheckRespondingThread()
         self.logfile = open("gameInfo.txt", "r", encoding="utf-8")
+        socket.setdefaulttimeout(60)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((HOST, PORT))
         self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         self.paused=False
+        self.start_time=-1
 
     def set_initial_state(self):
         self.prev_input_actions = NO_ACTION
@@ -101,6 +104,7 @@ class dsgym:
         self.timesinceherolosthp=0
         self.timesinceheroparry=0
         self.numEstusLastFrame=0
+        self.start_time=time.time()
         self.info={}
         for _ in range(num_prev_animations):
             self.prev_boss_animations.append(0)
@@ -199,10 +203,16 @@ class dsgym:
     def teleToBoss(self):
         print("Teleporting to",self.boss_config["name"])
         self.setDsInFocus()
-        time.sleep(5)
-        for i in range(50):
+        for i in range(10):
+            time.sleep(1)
+            stateDict=self.readState()
+            if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
+                print("Currently at bonfire area")
+                break
+        time.sleep(1)
+        for i in range(100):
             self.waitForUnpause()
-            self.check_responding_lock()
+            self.check_responding_lock()   
             PressAndFastRelease(F1)
             self.setCeState(self.boss_config["fog_gate_teleport"])
             PressAndFastRelease(Q)
@@ -211,18 +221,18 @@ class dsgym:
             PressAndRelease(U)#Normal speed
             PressAndRelease(E)
             PressAndRelease(E)#Twice, bloodstain can be at entrance
-            time.sleep(2)
+            time.sleep(3)
             #Check whether we have entered boss area
             stateDict=self.readState()
             if(stateDict[areaKey]==self.boss_config["boss_area"]):
                 self.setCeState(self.boss_config["boss_teleport"])
-                time.sleep(1)
+                PressAndRelease(F1)
                 PressAndRelease(Q)
-                PressAndFastRelease(F2)
-                PressAndFastRelease(T)
+                PressAndRelease(F2)
+                PressAndRelease(T)
                 break
-            elif i%20:
-                print("Tried 20 times, killing self and resetting boss")
+            elif i%50==49:
+                print("Tried 50 times, killing self and resetting boss")
                 self.suicide_and_set_bonfire()
                 time.sleep(20)
 
@@ -245,6 +255,7 @@ class dsgym:
             time.sleep(1)
     def suicide_and_set_bonfire(self):
         self.setCeState({"LastBonfire": self.boss_config["bonfire_id"]})
+        PressAndRelease(F2)
         PressAndRelease(F3)
 
     def setCeState(self,dict):
@@ -262,6 +273,7 @@ class dsgym:
                 try:
                     self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.socket.connect((HOST, PORT))
+                    self.socket.setblocking(False)
                     self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
                 except:
                     print("Couldn't reconnect")
@@ -269,17 +281,22 @@ class dsgym:
             hasSent=True
 
 
-    def readState(self):
+    def readState(self,timeout=10):
         hasRead=False
         start_read=time.time()
 
         while (hasRead==False):
             try:
                 self.socket.send(b'getState \n')
+                self.socket.settimeout(timeout)
                 data = self.socket.recv(1024)
                 #print('Received', repr(data))
                 loglines=data.decode("utf-8")
-            except:
+            except socket.timeout:
+                print("Timeout using prev state instead, closing socket so data flushed")
+                self.socket.close()
+                break
+            except Exception:
                 print("Couldn't read from socket, will retry connecting")
                 try:
                     self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -290,17 +307,17 @@ class dsgym:
                 continue
             if not loglines or len(loglines.split(";;"))<22:
                 continue
-            stateDict= {}
             for line in loglines.split(";;"):
                 try:
                     (key,val) = line.split("::")
-                    stateDict[key]=val
+                    self.stateDict[key]=val
                 except:
-                    print("Had issues reading state, will try again")
+                    print("Had issues reading state, will try again, state was ",loglines)
                     break
             else:
                 hasRead = True
-        return stateDict
+        self.stateDict["didRead"]=hasRead
+        return self.stateDict
     def reset(self):
         self.setDsInFocus()
         self.releaseAll()
@@ -344,9 +361,9 @@ class dsgym:
         #Check if able to take not responding lock
         
         self.check_responding_lock()
-
         self.ensure_framerate()
-        stateDict = self.readState()
+        stateDict = self.readState(FRAME_DIFF)
+
         #Check if we died
         if(stateDict[charHpKey]=="0" or stateDict[areaKey]==self.boss_config["bonfire_area"] or stateDict[areaKey]=="??"):
             #Unpause game and wait for hp>0
@@ -556,17 +573,16 @@ class dsgym:
         ReleaseKeys(keys)
 
     def ensure_framerate(self):
-        global start_time
          # Sleep to ensure consistency in frames
-        if start_time != -1:
-            elapsed = time.time() - start_time
+        if self.start_time != -1:
+            elapsed = time.time() - self.start_time
             timeToSleep = FRAME_DIFF - elapsed
             if timeToSleep > 0:
                 time.sleep(timeToSleep)
                 #print("New elapsed ",time.time()-start_time)
             else:
-                print("Didn't sleep")
-        start_time = time.time()
+                print("Didn't sleep:",elapsed)
+        self.start_time = time.time()
 
     def parseStateDictValue(self,stateDict,key):
         if (stateDict[key]=="??" or stateDict[key]==""):
@@ -649,7 +665,12 @@ class dsgym:
         stateToAdd[42]=stateDict["HeroAnimationCounter"]
         stateToAdd[43]=self.timesinceherolosthp
         stateToAdd[44]=self.timesinceheroparry
-        charAnimationStartIndex=45
+        stateToAdd[45]=time.time()-self.start_time
+        if(self.stateDict["didRead"]):
+            stateToAdd[46]=1
+        else:
+            print("didntread")
+        charAnimationStartIndex=47
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):

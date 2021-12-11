@@ -5,12 +5,12 @@ boss_area: "300007"
 bonfire_area: "300001"
 bonfire_id: 3002950 #High Wall of Lothric
 fog_gate_teleport:
- heroAngle: 0.10
  heroX: 27.73
- heroZ: -25.64
  heroY: 45.86
+ heroZ: -25.64
+ heroAngle: 0.10
 boss_teleport:
  heroAngle: 0.01
  heroX: 29.43
- heroZ: -26.16
  heroY: 31.69
+ heroZ: -26.16
