@@ -1,0 +1,13 @@
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.exe
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.deps.json
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.runtimeconfig.json
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.runtimeconfig.dev.json
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.dll
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.pdb
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.csproj.AssemblyReference.cache
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.AssemblyInfoInputs.cache
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.AssemblyInfo.cs
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.csproj.CoreCompileInputs.cache
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.dll
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.pdb
+C:\Users\Nikolaj\source\repos\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.genruntimeconfig.cache
