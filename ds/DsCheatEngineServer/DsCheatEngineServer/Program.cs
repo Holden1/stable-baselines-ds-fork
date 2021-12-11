@@ -21,7 +21,6 @@ namespace DsCheatEngineServer
                 {
                     Socket handler = serverSocket.Accept();
                     string data = null;
-
                     // An incoming connection needs to be processed.  
                     while (true)
                     {
@@ -39,6 +38,7 @@ namespace DsCheatEngineServer
 
                     if (data.IndexOf("updateAddress") > -1)
                     {
+                        cheatEngineSocketClient = new SocketClient(31000);
                         cheatEngineAddressDictionary = updateCheatEngineDictionary(cheatEngineSocketClient);
                     }
                     else
@@ -47,9 +47,11 @@ namespace DsCheatEngineServer
                         byte[] msg = Encoding.UTF8.GetBytes(getDsState(cheatEngineAddressDictionary));
 
                         handler.Send(msg);
+                        
                     }
                     handler.Shutdown(SocketShutdown.Both);
                     handler.Close();
+
                 }
                 catch (Exception e)
                 {

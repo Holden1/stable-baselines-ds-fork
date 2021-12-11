@@ -13,11 +13,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Nikolaj\\source\\repos\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
+      "projectUniqueName": "C:\\Users\\Nikolaj\\Documents\\stable-baselines\\ds\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
       "projectName": "DsCheatEngineServer",
-      "projectPath": "C:\\Users\\Nikolaj\\source\\repos\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
+      "projectPath": "C:\\Users\\Nikolaj\\Documents\\stable-baselines\\ds\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
       "packagesPath": "C:\\Users\\Nikolaj\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Nikolaj\\source\\repos\\DsCheatEngineServer\\DsCheatEngineServer\\obj\\",
+      "outputPath": "C:\\Users\\Nikolaj\\Documents\\stable-baselines\\ds\\DsCheatEngineServer\\DsCheatEngineServer\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Nikolaj\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -60,7 +60,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.300\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.200\\RuntimeIdentifierGraph.json"
       }
     }
   }

@@ -49,7 +49,8 @@ parryAnimationName='DamageParryEnemy1'
 
 # Cheat engine socket info
 HOST = '127.0.0.1'  # The server's hostname or IP address
-PORT = 31000        # The port used by the server     
+PORT = 31000        # The port used by the cheat engine server     
+DOTNETPORT = 31001        # The port used by the dotnet server     
 
 def parse_val(value):
     try:
@@ -77,10 +78,6 @@ class dsgym:
         self.set_initial_state()      
         self.spawnCheckRespondingThread()
         self.logfile = open("gameInfo.txt", "r", encoding="utf-8")
-        socket.setdefaulttimeout(60)
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((HOST, PORT))
-        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         self.paused=False
         self.start_time=-1
 
@@ -230,6 +227,7 @@ class dsgym:
                 PressAndRelease(Q)
                 PressAndRelease(F2)
                 PressAndRelease(T)
+                self.sendString("updateAddress",DOTNETPORT)
                 break
             elif i%50==49:
                 print("Tried 50 times, killing self and resetting boss")
@@ -264,47 +262,50 @@ class dsgym:
         for key,value in dict.items():
             str_to_send+=str(key)+"="+str(value)+" "
         str_to_send+="\n"
+        self.sendString(str_to_send)
+    
+    def sendString(self, stringToSend,port=PORT):
         while (hasSent==False):
             try:
-                print("Trying to send: ",str_to_send)
-                self.socket.send(bytes(str_to_send,"utf-8"))
+                print("Trying to send: ",stringToSend)
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.connect((HOST, port))
+                self.socket.setblocking(False)
+                self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+                self.socket.send(bytes(stringToSend,"utf-8"))
             except BaseException as err:
                 print("Couldn't send to socket, will retry connecting , err: ",err)
                 try:
-                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.socket.connect((HOST, PORT))
-                    self.socket.setblocking(False)
-                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+                    
                 except:
                     print("Couldn't reconnect")
                 continue
+            finally:
+                self.socket.close()
             hasSent=True
 
 
-    def readState(self,timeout=10):
+    def readState(self,timeout=10,port=31000):
         hasRead=False
         start_read=time.time()
 
         while (hasRead==False):
             try:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.connect((HOST, port))
+                self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
                 self.socket.send(b'getState \n')
                 self.socket.settimeout(timeout)
                 data = self.socket.recv(1024)
-                #print('Received', repr(data))
                 loglines=data.decode("utf-8")
             except socket.timeout:
                 print("Timeout using prev state instead, closing socket so data flushed")
-                self.socket.close()
                 break
             except Exception:
                 print("Couldn't read from socket, will retry connecting")
-                try:
-                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.socket.connect((HOST, PORT))
-                    self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-                except:
-                    print("Couldn't reconnect")
                 continue
+            finally:
+                self.socket.close()
             if not loglines or len(loglines.split(";;"))<22:
                 continue
             for line in loglines.split(";;"):
@@ -362,7 +363,7 @@ class dsgym:
         
         self.check_responding_lock()
         self.ensure_framerate()
-        stateDict = self.readState(FRAME_DIFF)
+        stateDict = self.readState(FRAME_DIFF,DOTNETPORT)
 
         #Check if we died
         if(stateDict[charHpKey]=="0" or stateDict[areaKey]==self.boss_config["bonfire_area"] or stateDict[areaKey]=="??"):
@@ -649,27 +650,24 @@ class dsgym:
         stateToAdd[29]=stateDict["HeroAnimationCounter"]
         stateToAdd[30]=self.timesincecharacterattack
         stateToAdd[31]=self.timesincebossattack
-        stateToAdd[32]=stateDict["BossAnimationCounter"]
         estus=self.parseStateDictValue(stateDict,"numEstus")
-        stateToAdd[33]=estus
+        stateToAdd[32]=estus
         if estus>0:
-            stateToAdd[34]=1
-        stateToAdd[35]=math.sin(heroAngle)
-        stateToAdd[36]=math.cos(heroAngle)
-        stateToAdd[37]=math.sin(targetAngle)
-        stateToAdd[38]=math.cos(targetAngle)
-        stateToAdd[39]=heroX-targetX
+            stateToAdd[33]=1
+        stateToAdd[34]=math.sin(heroAngle)
+        stateToAdd[35]=math.cos(heroAngle)
+        stateToAdd[36]=math.sin(targetAngle)
+        stateToAdd[37]=math.cos(targetAngle)
+        stateToAdd[38]=heroX-targetX
         stateToAdd[39]=heroY-targetY
         stateToAdd[40]=self.timesincebosslosthp
-        stateToAdd[41]=stateDict["BossAnimationCounter"]
-        stateToAdd[42]=stateDict["HeroAnimationCounter"]
+        stateToAdd[41]=self.bossAnimationFrameCount
+        stateToAdd[42]=self.charAnimationFrameCount
         stateToAdd[43]=self.timesinceherolosthp
         stateToAdd[44]=self.timesinceheroparry
         stateToAdd[45]=time.time()-self.start_time
         if(self.stateDict["didRead"]):
             stateToAdd[46]=1
-        else:
-            print("didntread")
         charAnimationStartIndex=47
         
         #binary encode current and prev animations
