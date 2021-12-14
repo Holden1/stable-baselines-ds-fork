@@ -6,7 +6,7 @@ from directkeys import W,A,S,D,P,U,E,Q,T,L,I,R,F1,F2,F3,F11,NUM1,NUM2,NUM4,SPACE
 HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 31000        # The port used by the server
 DOTNETPORT = 31001        # The port used by the server
-NUMTIMES=1
+NUMTIMES=100
 FRAME_DIFF=0.01
 
 
@@ -23,6 +23,7 @@ for i in range(NUMTIMES):
         s.connect((HOST, DOTNETPORT))
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.settimeout(0.5)
+        time.sleep(1)
         s.send(b'getState \n')
         try:
             data = s.recv(1024)

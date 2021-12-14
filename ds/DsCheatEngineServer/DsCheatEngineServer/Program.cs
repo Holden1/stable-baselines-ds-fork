@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 
@@ -80,30 +81,34 @@ namespace DsCheatEngineServer
         private static string getStateFromDict(Dictionary<string, long[]> dict, ProcessMemory pm)
         {
             var state = "";
-            foreach (var item in dict)
+            for (int i = 0; i < dict.Count; i++)
             {
+                var item = dict.ElementAt(i);
                 pm.Address = item.Value[0];
                 long type = item.Value[1];
                 switch (type)
                 {
                     case 0:
-                        state += item.Key + "::" + pm.AsByte();
+                        state += item.Key + "::" + pm.AsByte() + ";;";
                         break;
                     case 2:
-                        state += item.Key + "::" + BitConverter.ToInt32(pm.AsBytes(4));
+                        state += item.Key + "::" + BitConverter.ToInt32(pm.AsBytes(4)) + ";;";
                         break;
                     case 4:
-                        state += item.Key + "::" + BitConverter.ToSingle(pm.AsBytes(4));
+                        state += item.Key + "::" + BitConverter.ToSingle(pm.AsBytes(4)) + ";;";
                         break;
                     case 6:
-                        state += item.Key + "::" + pm.AsString((int)item.Value[2], System.Text.Encoding.Unicode);
+                        state += item.Key + "::" + pm.AsString((int)item.Value[2], System.Text.Encoding.Unicode) + ";;";
                         break;
                     default:
-                        state += item.Key + ":: default";
+                        state += item.Key + ":: default" + ";;";
                         break;
                 }
 
+
             }
+            //Remove last ;;
+            state = state.Substring(0,state.Length - 2);
 
             return state;
         }

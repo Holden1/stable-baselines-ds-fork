@@ -11,6 +11,6 @@ fog_gate_teleport:
  heroAngle: 0.10
 boss_teleport:
  heroAngle: 0.01
- heroX: 29.43
- heroY: 31.69
- heroZ: -26.16
+ heroX: 27.72
+ heroY: 25.69
+ heroZ: -25.93

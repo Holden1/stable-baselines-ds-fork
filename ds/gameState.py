@@ -203,6 +203,7 @@ class dsgym:
         for i in range(10):
             time.sleep(1)
             stateDict=self.readState()
+            print(stateDict[areaKey])
             if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
                 print("Currently at bonfire area")
                 break
@@ -227,8 +228,13 @@ class dsgym:
                 PressAndRelease(Q)
                 PressAndRelease(F2)
                 PressAndRelease(T)
-                self.sendString("updateAddress",DOTNETPORT)
-                break
+                self.sendString("updateAddress \n",DOTNETPORT)
+                stateDict = self.readState(1,DOTNETPORT)
+                bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
+                if(stateDict["targetLock"]=="1" and bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
+                    break # Make sure we have target and correct targeted entity by checking hp
+                else:
+                    print("Retrying teleport as we either didn't have target or bosshp was wrong targetlock: ",stateDict["targetLock"], " bossHp: ",bossHp)
             elif i%50==49:
                 print("Tried 50 times, killing self and resetting boss")
                 self.suicide_and_set_bonfire()
@@ -258,13 +264,14 @@ class dsgym:
 
     def setCeState(self,dict):
         str_to_send = ""
-        hasSent=False
+        
         for key,value in dict.items():
             str_to_send+=str(key)+"="+str(value)+" "
         str_to_send+="\n"
         self.sendString(str_to_send)
     
     def sendString(self, stringToSend,port=PORT):
+        hasSent=False
         while (hasSent==False):
             try:
                 print("Trying to send: ",stringToSend)
@@ -275,11 +282,6 @@ class dsgym:
                 self.socket.send(bytes(stringToSend,"utf-8"))
             except BaseException as err:
                 print("Couldn't send to socket, will retry connecting , err: ",err)
-                try:
-                    
-                except:
-                    print("Couldn't reconnect")
-                continue
             finally:
                 self.socket.close()
             hasSent=True
@@ -363,10 +365,10 @@ class dsgym:
         
         self.check_responding_lock()
         self.ensure_framerate()
-        stateDict = self.readState(FRAME_DIFF,DOTNETPORT)
+        stateDict = self.readState(10,DOTNETPORT)
 
         #Check if we died
-        if(stateDict[charHpKey]=="0" or stateDict[areaKey]==self.boss_config["bonfire_area"] or stateDict[areaKey]=="??"):
+        if(stateDict[charHpKey]=="0" or stateDict[areaKey]!=self.boss_config["boss_area"] or stateDict[areaKey]=="??"):
             #Unpause game and wait for hp>0
             self.releaseAll()
             PressAndRelease(U)
@@ -387,11 +389,13 @@ class dsgym:
             
         #Check if lost target on boss
         elif stateDict["targetLock"]=="0":
-            print("Lost target, retargeting until i die")
-            while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0":
+            print("Lost target, retargeting until i die or 100 times")
+            numtries=100
+            while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
                 self.releaseAll()
-                PressAndFastRelease(Q)
-                stateDict=self.readState()      
+                PressAndRelease(Q)
+                stateDict=self.readState()
+                numtries = numtries-1      
         #Input action
         self.handleAction(input_actions)      
         
@@ -592,7 +596,7 @@ class dsgym:
             try:
                 return float(stateDict[key].replace(",","."))
             except:
-                print("Couldn't transform value to float for key: ",key, "using 0 instead")
+                print("Couldn't transform value to float for key: ",key, "using 0 instead, value was: ",stateDict[key])
                 return 0
     def calc_dist(self,stateDict):
         targetx=self.parseStateDictValue(stateDict,"targetedEntityX")
@@ -647,28 +651,27 @@ class dsgym:
         stateToAdd[26]=heroAngle
         stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")
         stateToAdd[28]=stateDict["reward"]
-        stateToAdd[29]=stateDict["HeroAnimationCounter"]
-        stateToAdd[30]=self.timesincecharacterattack
-        stateToAdd[31]=self.timesincebossattack
+        stateToAdd[29]=self.timesincecharacterattack
+        stateToAdd[30]=self.timesincebossattack
         estus=self.parseStateDictValue(stateDict,"numEstus")
-        stateToAdd[32]=estus
+        stateToAdd[31]=estus
         if estus>0:
-            stateToAdd[33]=1
-        stateToAdd[34]=math.sin(heroAngle)
-        stateToAdd[35]=math.cos(heroAngle)
-        stateToAdd[36]=math.sin(targetAngle)
-        stateToAdd[37]=math.cos(targetAngle)
-        stateToAdd[38]=heroX-targetX
-        stateToAdd[39]=heroY-targetY
-        stateToAdd[40]=self.timesincebosslosthp
-        stateToAdd[41]=self.bossAnimationFrameCount
-        stateToAdd[42]=self.charAnimationFrameCount
-        stateToAdd[43]=self.timesinceherolosthp
-        stateToAdd[44]=self.timesinceheroparry
-        stateToAdd[45]=time.time()-self.start_time
+            stateToAdd[32]=1
+        stateToAdd[33]=math.sin(heroAngle)
+        stateToAdd[34]=math.cos(heroAngle)
+        stateToAdd[35]=math.sin(targetAngle)
+        stateToAdd[36]=math.cos(targetAngle)
+        stateToAdd[37]=heroX-targetX
+        stateToAdd[38]=heroY-targetY
+        stateToAdd[39]=self.timesincebosslosthp
+        stateToAdd[40]=self.bossAnimationFrameCount
+        stateToAdd[41]=self.charAnimationFrameCount
+        stateToAdd[42]=self.timesinceherolosthp
+        stateToAdd[43]=self.timesinceheroparry
+        stateToAdd[44]=time.time()-self.start_time
         if(self.stateDict["didRead"]):
-            stateToAdd[46]=1
-        charAnimationStartIndex=47
+            stateToAdd[45]=1
+        charAnimationStartIndex=46
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):
