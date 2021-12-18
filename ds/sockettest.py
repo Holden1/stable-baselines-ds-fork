@@ -13,10 +13,10 @@ FRAME_DIFF=0.01
 start_time=time.time()
 start_time2=time.time() 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, DOTNETPORT))
+        s.connect((HOST, PORT))
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.settimeout(100)
-        s.send(b'updateAddress \n')
+        s.send(b'LastBonfire=4002951 \n')
 
 for i in range(NUMTIMES):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

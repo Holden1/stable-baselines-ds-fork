@@ -28,7 +28,7 @@ NO_ACTION=[0,0]
 HERO_BASE_HP=454
 HEALTH_REWARD_MULTIPLIER=2.5
 REWARD_DISTANCE=5
-ESTUS_NEGATIVE_REWARD=0.3
+ESTUS_NEGATIVE_REWARD=0.0
 PARRY_REWARD=0.1
 TIMESTEPS_DEFENSIVE_BEHAVIOR=200
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
@@ -41,7 +41,7 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=76
+num_state_scalars=81
 num_history_states=5
 num_prev_animations=2
 
@@ -69,7 +69,7 @@ class dsgym:
     action_space=spaces.MultiDiscrete([5,6])
     metadata=None
     def __init__(self):
-        with open("bossconfigs/Vordt.yaml", "r") as ymlfile:
+        with open("bossconfigs/Iudex.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
@@ -77,9 +77,9 @@ class dsgym:
         self.best_so_far=-100
         self.set_initial_state()      
         self.spawnCheckRespondingThread()
-        self.logfile = open("gameInfo.txt", "r", encoding="utf-8")
         self.paused=False
         self.start_time=-1
+        #self.suicide_and_set_bonfire()
 
     def set_initial_state(self):
         self.prev_input_actions = NO_ACTION
@@ -215,19 +215,19 @@ class dsgym:
             self.setCeState(self.boss_config["fog_gate_teleport"])
             PressAndFastRelease(Q)
             PressAndFastRelease(F1)
-            time.sleep(1)
             PressAndRelease(U)#Normal speed
+            time.sleep(1)
             PressAndRelease(E)
             PressAndRelease(E)#Twice, bloodstain can be at entrance
-            time.sleep(3)
+            time.sleep(2)
             #Check whether we have entered boss area
             stateDict=self.readState()
             if(stateDict[areaKey]==self.boss_config["boss_area"]):
                 self.setCeState(self.boss_config["boss_teleport"])
-                PressAndRelease(F1)
-                PressAndRelease(Q)
-                PressAndRelease(F2)
-                PressAndRelease(T)
+                PressAndFastRelease(F1)
+                PressAndFastRelease(Q)
+                PressAndFastRelease(F2)
+                PressAndFastRelease(T)
                 self.sendString("updateAddress \n",DOTNETPORT)
                 stateDict = self.readState(1,DOTNETPORT)
                 bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
@@ -389,11 +389,11 @@ class dsgym:
             
         #Check if lost target on boss
         elif stateDict["targetLock"]=="0":
-            print("Lost target, retargeting until i die or 100 times")
-            numtries=100
+            print("Lost target, retargeting until i die or 1000 times")
+            numtries=1000
             while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
                 self.releaseAll()
-                PressAndRelease(Q)
+                PressAndFastRelease(Q)
                 stateDict=self.readState()
                 numtries = numtries-1      
         #Input action
@@ -669,9 +669,42 @@ class dsgym:
         stateToAdd[42]=self.timesinceherolosthp
         stateToAdd[43]=self.timesinceheroparry
         stateToAdd[44]=time.time()-self.start_time
+
+        targetAngle=self.parseStateDictValue(stateDict,"targetedEntityAngle")
+        heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
+        heroX=self.parseStateDictValue(stateDict,"heroX")
+        heroY=self.parseStateDictValue(stateDict,"heroY")
+        targetedEntityX=self.parseStateDictValue(stateDict,"targetedEntityX")
+        targetedEntityY=self.parseStateDictValue(stateDict,"targetedEntityY")
+        
+        angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY)+math.pi)*57.29
+        if angleBetween >180:
+            angleBetween= 360-angleBetween
+        targetAngle=targetAngle*90
+
+        diffAngle = targetAngle-angleBetween
+        stateToAdd[45]=diffAngle
+        absDiff= abs(diffAngle)
+        if absDiff>135:
+            print("behind")
+            stateToAdd[46]=1
+        elif absDiff<=135 and absDiff>=45:
+            if diffAngle>0:
+                print("right Side")
+                stateToAdd[47]=1
+            else:
+                stateToAdd[48]=1
+                print("left side")
+        else:
+            stateToAdd[49]=1
+            print("front")
+
+        
+
+
         if(self.stateDict["didRead"]):
-            stateToAdd[45]=1
-        charAnimationStartIndex=46
+            stateToAdd[50]=1
+        charAnimationStartIndex=51
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):

@@ -108,9 +108,21 @@ public struct ProcessMemory
         if (Process.HasExited)
             throw new InvalidOperationException("The process has exited.");
 
-        var value = Read(Process, Address, length*2);
+        
         if (length == 1)
-            return Encoding.ASCII.GetString(value);
+        {
+            var val = Read(Process, Address, length);
+            var stringval = Encoding.ASCII.GetString(val)
+                            .Trim();
+            int num;
+            if (String.IsNullOrEmpty(stringval)|| !int.TryParse(stringval,out num))
+            {
+                return "0";
+            }
+            else
+                return stringval;
+        }
+        var value = Read(Process, Address, length * 2);
         return encoding.GetString(value).Split("\0")[0];
     }
 
