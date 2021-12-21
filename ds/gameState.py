@@ -79,7 +79,10 @@ class dsgym:
         self.spawnCheckRespondingThread()
         self.paused=False
         self.start_time=-1
-        #self.suicide_and_set_bonfire()
+        stateDict=self.readState()
+        if(stateDict[areaKey]!=self.boss_config["bonfire_area"] and stateDict[areaKey]!=self.boss_config["boss_area"]):
+            print("starting and not in bonfire or boss area, will set bonfire correct and suicide")
+            self.suicide_and_set_bonfire()
 
     def set_initial_state(self):
         self.prev_input_actions = NO_ACTION
@@ -159,13 +162,13 @@ class dsgym:
     def CheckAndHandleNotResponding(self):
         while True:
             #Cheat engine might not be responding if it fails to attach debugger
-            if(self.notresponding("DarkSoulsIII.exe") or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe") or self.window_exists("Lua Engine")):
+            if(self.notresponding("DarkSoulsIII.exe") or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe")):
                 with not_responding_lock:
                     self.releaseAll()
                     print("Game not responding, waiting 5 seconds until restart")
                     PressAndRelease(U)
                     time.sleep(5)
-                    if (self.notresponding("DarkSoulsIII.exe")or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe") or self.window_exists("Lua Engine")):
+                    if (self.notresponding("DarkSoulsIII.exe")or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe")):
                         self.kill_processes()
                         os.system('".\\DarkSoulsIII.CT"')
                         time.sleep(5)

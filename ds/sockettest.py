@@ -16,28 +16,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.settimeout(100)
-        s.send(b'LastBonfire=4002951 \n')
+        s.send(b'LastBonfire=3002950 \n')
 
-for i in range(NUMTIMES):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, DOTNETPORT))
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        s.settimeout(0.5)
-        time.sleep(1)
-        s.send(b'getState \n')
-        try:
-            data = s.recv(1024)
-            print(data)
-        except socket.timeout:
-            print("timeout")
-        if start_time != -1:
-            elapsed = time.time() - start_time
-            timeToSleep = FRAME_DIFF - elapsed
-            if timeToSleep > 0:
-                time.sleep(timeToSleep)
-                #print("New elapsed ",time.time()-start_time)
-            else:
-                print("Didn't sleep:",elapsed)
-        s.close()
-        start_time=time.time()
 print("state took:",time.time()-start_time2)
