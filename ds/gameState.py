@@ -69,7 +69,7 @@ class dsgym:
     action_space=spaces.MultiDiscrete([5,6])
     metadata=None
     def __init__(self):
-        with open("bossconfigs/Iudex.yaml", "r") as ymlfile:
+        with open("bossconfigs/Vordt.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
@@ -696,11 +696,7 @@ class dsgym:
                 stateToAdd[49]=1
         else:
             stateToAdd[50]=1
-
-        print("target hp scaled: ",stateToAdd[12], " hero hp scaled: ", stateToAdd[22], " herosp scaled: ", stateToAdd[27])
         
-
-
         if(self.stateDict["didRead"]):
             stateToAdd[51]=1
         charAnimationStartIndex=52
