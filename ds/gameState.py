@@ -41,7 +41,7 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=81
+num_state_scalars=82
 num_history_states=5
 num_prev_animations=2
 
@@ -630,7 +630,7 @@ class dsgym:
         stateToAdd=np.zeros(num_state_scalars)
         stateToAdd[action_to_add[0]]=1
         stateToAdd[action_to_add[1]+5]=1
-        stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")
+        stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/self.parseStateDictValue(stateDict,"TargetMaxHp")
         stateToAdd[13]=targetX
         stateToAdd[14]=targetY
         stateToAdd[15]=self.parseStateDictValue(stateDict,"targetedEntityZ")
@@ -641,7 +641,7 @@ class dsgym:
         stateToAdd[19]=self.parseStateDictValue(stateDict,"targetMovement1")
         stateToAdd[20]=self.parseStateDictValue(stateDict,"targetMovement2")
         stateToAdd[21]=self.parseStateDictValue(stateDict,"targetComboAttack")
-        stateToAdd[22]=self.parseStateDictValue(stateDict,"heroHp")
+        stateToAdd[22]=self.parseStateDictValue(stateDict,"heroHp")/self.parseStateDictValue(stateDict,"heroMaxHp")
         stateToAdd[23]=heroX
         stateToAdd[24]=heroY
 
@@ -649,7 +649,7 @@ class dsgym:
         stateToAdd[25]=dist
         heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
         stateToAdd[26]=heroAngle
-        stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")
+        stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")/self.parseStateDictValue(stateDict,"heroMaxSp")
         stateToAdd[28]=stateDict["reward"]
         stateToAdd[29]=self.timesincecharacterattack
         stateToAdd[30]=self.timesincebossattack
@@ -683,28 +683,27 @@ class dsgym:
         targetAngle=targetAngle*90
 
         diffAngle = targetAngle-angleBetween
-        stateToAdd[45]=diffAngle
+        diffAngleScaled = diffAngle/180
+        stateToAdd[45]=diffAngleScaled
+        stateToAdd[46]=abs(diffAngleScaled)
         absDiff= abs(diffAngle)
         if absDiff>135:
-            print("behind")
-            stateToAdd[46]=1
+            stateToAdd[47]=1
         elif absDiff<=135 and absDiff>=45:
             if diffAngle>0:
-                print("right Side")
-                stateToAdd[47]=1
-            else:
                 stateToAdd[48]=1
-                print("left side")
+            else:
+                stateToAdd[49]=1
         else:
-            stateToAdd[49]=1
-            print("front")
+            stateToAdd[50]=1
 
+        print("target hp scaled: ",stateToAdd[12], " hero hp scaled: ", stateToAdd[22], " herosp scaled: ", stateToAdd[27])
         
 
 
         if(self.stateDict["didRead"]):
-            stateToAdd[50]=1
-        charAnimationStartIndex=51
+            stateToAdd[51]=1
+        charAnimationStartIndex=52
         
         #binary encode current and prev animations
         for j in range(num_prev_animations):
