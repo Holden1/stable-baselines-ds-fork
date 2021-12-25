@@ -28,9 +28,9 @@ NO_ACTION=[0,0]
 HERO_BASE_HP=454
 HEALTH_REWARD_MULTIPLIER=2.5
 REWARD_DISTANCE=5
-ESTUS_NEGATIVE_REWARD=0.0
+ESTUS_NEGATIVE_REWARD=0.1
 PARRY_REWARD=0.1
-TIMESTEPS_DEFENSIVE_BEHAVIOR=200
+TIMESTEPS_DEFENSIVE_BEHAVIOR=2000
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
 
 
@@ -90,6 +90,7 @@ class dsgym:
         self.prev_boss_animations = deque([],maxlen=num_prev_animations)
         self.prev_state = deque([], maxlen=num_history_states)
         self.fill_frame_buffer=True
+        self.within_reward_range=False
         self.episode_rew=0
         self.episode_len=0
         self.bossHpLastFrame=self.boss_config["base_hp"]
@@ -98,11 +99,13 @@ class dsgym:
         self.charHpLastFrame=HERO_BASE_HP
         self.charAnimationLastFrame='??'
         self.charAnimationFrameCount=0
-        self.timesincecharacterattack=0
-        self.timesincebossattack=0
-        self.timesincebosslosthp=0
-        self.timesinceherolosthp=0
-        self.timesinceheroparry=0
+        self.timesincecharacterattack=100
+        self.timesincebossattack=100
+        self.timesincebosslosthp=100
+        self.timesinceherolosthp=100
+        self.timesinceheroparry=100
+        self.bosshpdiff=0
+        self.charhpdiff=0
         self.numEstusLastFrame=0
         self.start_time=time.time()
         self.info={}
@@ -400,11 +403,14 @@ class dsgym:
                 stateDict=self.readState()
                 numtries = numtries-1      
         #Input action
-        self.handleAction(input_actions)      
-        
+        self.handleAction(input_actions)    
+
+        #handle lost life of boss or char  
+        self.bosshpdiff=0
+        self.charhpdiff=0
         if stateDict[bossHpKey]!="??" and self.bossHpLastFrame>int(stateDict[bossHpKey]):
-            hpdiff=self.bossHpLastFrame-int(stateDict[bossHpKey])
-            reward+=(hpdiff/self.boss_config["base_hp"])*HEALTH_REWARD_MULTIPLIER
+            self.bosshpdiff=self.bossHpLastFrame-int(stateDict[bossHpKey])
+            reward+=(self.bosshpdiff/self.boss_config["base_hp"])*HEALTH_REWARD_MULTIPLIER
             self.timesincebosslosthp=0
         else:
             self.timesincebosslosthp = self.timesincebosslosthp+1
@@ -414,8 +420,8 @@ class dsgym:
 
         #If our hp is different from last frame, can result in reward if char got healed
         if stateDict[charHpKey]!="??" and int(stateDict[charHpKey])!=int(self.charHpLastFrame):
-            hpdiff=int(self.charHpLastFrame)-int(stateDict[charHpKey])
-            reward-=hpdiff/HERO_BASE_HP
+            self.charhpdiff=int(self.charHpLastFrame)-int(stateDict[charHpKey])
+            reward-=self.charhpdiff/HERO_BASE_HP
             self.timesinceherolosthp=0
         else:
             self.timesinceherolosthp+=1
@@ -430,8 +436,10 @@ class dsgym:
         #Keep hero close to boss and incentivise being alive
         if self.calc_dist(stateDict) < REWARD_DISTANCE:
             reward+=0.001
+            self.within_reward_range=True
         else:
             reward-=0.001
+            self.within_reward_range=False
 
         #penalize using estus to prevent spam
         numEstus=self.parseStateDictValue(stateDict,"numEstus")
@@ -633,7 +641,10 @@ class dsgym:
         stateToAdd=np.zeros(num_state_scalars)
         stateToAdd[action_to_add[0]]=1
         stateToAdd[action_to_add[1]+5]=1
-        stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/self.parseStateDictValue(stateDict,"TargetMaxHp")
+
+        targetMaxHp=self.parseStateDictValue(stateDict,"TargetMaxHp")
+        if targetMaxHp !=0:
+            stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/targetMaxHp
         stateToAdd[13]=targetX
         stateToAdd[14]=targetY
         stateToAdd[15]=self.parseStateDictValue(stateDict,"targetedEntityZ")
@@ -644,7 +655,9 @@ class dsgym:
         stateToAdd[19]=self.parseStateDictValue(stateDict,"targetMovement1")
         stateToAdd[20]=self.parseStateDictValue(stateDict,"targetMovement2")
         stateToAdd[21]=self.parseStateDictValue(stateDict,"targetComboAttack")
-        stateToAdd[22]=self.parseStateDictValue(stateDict,"heroHp")/self.parseStateDictValue(stateDict,"heroMaxHp")
+        heroMaxHp=self.parseStateDictValue(stateDict,"heroMaxHp")
+        if heroMaxHp!=0:
+            stateToAdd[22]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
         stateToAdd[23]=heroX
         stateToAdd[24]=heroY
 
@@ -652,7 +665,9 @@ class dsgym:
         stateToAdd[25]=dist
         heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
         stateToAdd[26]=heroAngle
-        stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")/self.parseStateDictValue(stateDict,"heroMaxSp")
+        heroMaxSp=self.parseStateDictValue(stateDict,"heroMaxSp")
+        if heroMaxSp!=0:
+            stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")/heroMaxSp
         stateToAdd[28]=stateDict["reward"]
         stateToAdd[29]=self.timesincecharacterattack
         stateToAdd[30]=self.timesincebossattack
@@ -660,9 +675,13 @@ class dsgym:
         stateToAdd[31]=estus
         if estus>0:
             stateToAdd[32]=1
-        stateToAdd[33]=math.sin(heroAngle)
-        stateToAdd[34]=math.cos(heroAngle)
-        stateToAdd[35]=math.sin(targetAngle)
+        if self.within_reward_range:
+            stateToAdd[33]=1
+        if targetMaxHp !=0:
+            stateToAdd[34]=self.bosshpdiff/targetMaxHp
+        if heroMaxHp!=0:
+            stateToAdd[35]=self.charhpdiff/heroMaxHp
+        print("Char hp diff: ",stateToAdd[35], " boss hp diff: ",stateToAdd[34])
         stateToAdd[36]=math.cos(targetAngle)
         stateToAdd[37]=heroX-targetX
         stateToAdd[38]=heroY-targetY
