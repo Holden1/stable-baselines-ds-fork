@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 import gym
 
+from collections import deque
 from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
@@ -11,6 +12,7 @@ from stable_baselines.common.schedules import LinearSchedule
 from stable_baselines.common.buffers import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.build_graph import build_train
 from stable_baselines.deepq.policies import DQNPolicy
+from stable_baselines.common.math_util import safe_mean
 
 
 class DQN(OffPolicyRLModel):
@@ -59,7 +61,7 @@ class DQN(OffPolicyRLModel):
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False,
-                 n_cpu_tf_sess=None, verbose=0, tensorboard_log=None,
+                 n_cpu_tf_sess=None, verbose=1, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None):
 
         # TODO: replay_buffer refactoring
@@ -149,7 +151,7 @@ class DQN(OffPolicyRLModel):
 
                 self.summary = tf.summary.merge_all()
 
-    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DQN",
+    def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name="DQN",
               reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -184,6 +186,7 @@ class DQN(OffPolicyRLModel):
 
             episode_rewards = [0.0]
             episode_successes = []
+            self.ep_info_buf= deque(maxlen=100)
 
             callback.on_training_start(locals(), globals())
             callback.on_rollout_start()
@@ -193,8 +196,8 @@ class DQN(OffPolicyRLModel):
             # Retrieve unnormalized observation for saving into the buffer
             if self._vec_normalize_env is not None:
                 obs_ = self._vec_normalize_env.get_original_obs().squeeze()
-
-            for _ in range(total_timesteps):
+            prev_training_timestep=self.learning_starts
+            for timestep in range(total_timesteps):
                 # Take action and update exploration to the newest value
                 kwargs = {}
                 if not self.param_noise:
@@ -246,59 +249,58 @@ class DQN(OffPolicyRLModel):
                                                         self.num_timesteps)
 
                 episode_rewards[-1] += reward_
-                if done:
-                    maybe_is_success = info.get('is_success')
-                    if maybe_is_success is not None:
-                        episode_successes.append(float(maybe_is_success))
-                    if not isinstance(self.env, VecEnv):
-                        obs = self.env.reset()
-                    episode_rewards.append(0.0)
-                    reset = True
 
                 # Do not train if the warmup phase is not over
                 # or if there are not enough samples in the replay buffer
                 can_sample = self.replay_buffer.can_sample(self.batch_size)
+                
                 if can_sample and self.num_timesteps > self.learning_starts \
-                        and self.num_timesteps % self.train_freq == 0:
-
+                        and done:
+                    timesteps_since_last_training=self.num_timesteps - prev_training_timestep
+                    num_train=timesteps_since_last_training//self.train_freq
+                    print("training steps since last training: " , timesteps_since_last_training , " timesteps: ",self.num_timesteps, " prev training: ",prev_training_timestep, "will train: ",num_train,  " times")
                     callback.on_rollout_end()
-                    # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-                    # pytype:disable=bad-unpacking
-                    if self.prioritized_replay:
-                        assert self.beta_schedule is not None, \
-                               "BUG: should be LinearSchedule when self.prioritized_replay True"
-                        experience = self.replay_buffer.sample(self.batch_size,
-                                                               beta=self.beta_schedule.value(self.num_timesteps),
-                                                               env=self._vec_normalize_env)
-                        (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
-                    else:
-                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size,
-                                                                                                env=self._vec_normalize_env)
-                        weights, batch_idxes = np.ones_like(rewards), None
-                    # pytype:enable=bad-unpacking
 
-                    if writer is not None:
-                        # run loss backprop with summary, but once every 100 steps save the metadata
-                        # (memory, compute time, ...)
-                        if (1 + self.num_timesteps) % 100 == 0:
-                            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                            run_metadata = tf.RunMetadata()
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess, options=run_options,
-                                                                  run_metadata=run_metadata)
-                            writer.add_run_metadata(run_metadata, 'step%d' % self.num_timesteps)
+                    for _ in range(num_train):
+                        # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
+                        # pytype:disable=bad-unpacking
+                        if self.prioritized_replay:
+                            assert self.beta_schedule is not None, \
+                                "BUG: should be LinearSchedule when self.prioritized_replay True"
+                            experience = self.replay_buffer.sample(self.batch_size,
+                                                                beta=self.beta_schedule.value(self.num_timesteps),
+                                                                env=self._vec_normalize_env)
+                            (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
                         else:
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess)
-                        writer.add_summary(summary, self.num_timesteps)
-                    else:
-                        _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
-                                                        sess=self.sess)
+                            obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size,
+                                                                                                    env=self._vec_normalize_env)
+                            weights, batch_idxes = np.ones_like(rewards), None
+                        # pytype:enable=bad-unpacking
 
-                    if self.prioritized_replay:
-                        new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
-                        assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
-                        self.replay_buffer.update_priorities(batch_idxes, new_priorities)
+                        if writer is not None:
+                            # run loss backprop with summary, but once every 100 steps save the metadata
+                            # (memory, compute time, ...)
+                            if (1 + self.num_timesteps) % 100 == 0:
+                                run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                                run_metadata = tf.RunMetadata()
+                                summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                                    dones, weights, sess=self.sess, options=run_options,
+                                                                    run_metadata=run_metadata)
+                                writer.add_run_metadata(run_metadata, 'step%d' % self.num_timesteps)
+                            else:
+                                summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                                    dones, weights, sess=self.sess)
+                            writer.add_summary(summary, self.num_timesteps)
+                        else:
+                            _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
+                                                            sess=self.sess)
+
+                        if self.prioritized_replay:
+                            new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
+                            assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
+                            self.replay_buffer.update_priorities(batch_idxes, new_priorities)
+                    
+                    prev_training_timestep=self.num_timesteps
 
                     callback.on_rollout_start()
 
@@ -314,14 +316,32 @@ class DQN(OffPolicyRLModel):
 
                 num_episodes = len(episode_rewards)
                 if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards) % log_interval == 0:
-                    logger.record_tabular("steps", self.num_timesteps)
-                    logger.record_tabular("episodes", num_episodes)
-                    if len(episode_successes) > 0:
-                        logger.logkv("success rate", np.mean(episode_successes[-100:]))
-                    logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
-                    logger.record_tabular("% time spent exploring",
+                    print("logging")
+                    logger.logkv("steps", self.num_timesteps)
+                    logger.logkv("episodes", num_episodes)
+                    if len(self.ep_info_buf) > 0:
+                        logger.logkv('ep_reward_mean', safe_mean([ep_info['r'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('ep_reward_min', min([ep_info['r'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('ep_reward_max', max([ep_info['r'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('ep_len_mean', safe_mean([ep_info['l'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('num_boss_kills', [ep_info['kill'] for ep_info in self.ep_info_buf].count(True))
+                        logger.logkv('boss_hp_max', max([ep_info['bosshp'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('boss_hp_mean', safe_mean([ep_info['bosshp'] for ep_info in self.ep_info_buf]))
+                        logger.logkv('boss_hp_min', min([ep_info['bosshp'] for ep_info in self.ep_info_buf]))
+                    logger.logkv("% time spent exploring",
                                           int(100 * self.exploration.value(self.num_timesteps)))
-                    logger.dump_tabular()
+                    logger.dumpkvs()
+                
+                if done:
+                    maybe_is_success = info.get('is_success')
+                    print(info)
+                    self.ep_info_buf.append(info.get("episode"))
+                    if maybe_is_success is not None:
+                        episode_successes.append(float(maybe_is_success))
+                    if not isinstance(self.env, VecEnv):
+                        obs = self.env.reset()
+                    episode_rewards.append(0.0)
+                    reset = True
 
         callback.on_training_end()
         return self

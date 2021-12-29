@@ -23,7 +23,7 @@ DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\
 FRAME_DIFF=0.2
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
-NO_ACTION=[0,0]
+
 
 HERO_BASE_HP=454
 HEALTH_REWARD_MULTIPLIER=2.5
@@ -32,6 +32,9 @@ ESTUS_NEGATIVE_REWARD=0.1
 PARRY_REWARD=0.1
 TIMESTEPS_DEFENSIVE_BEHAVIOR=2000
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
+BEHIND_REWARD=0.002
+NOT_IN_FRONT_REWARD=0.001
+CLOSE_DISTANCE_REWARD=0.001
 
 
 not_responding_lock=threading.Lock()
@@ -41,9 +44,9 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=82
+num_state_scalars=243
 num_history_states=5
-num_prev_animations=2
+num_prev_animations=1
 
 parryAnimationName='DamageParryEnemy1' 
 
@@ -64,28 +67,48 @@ def parse_val(value):
 class dsgym:
     
     observation_space=spaces.Box(-100,1000,shape=(num_history_states*num_state_scalars,))
-    #1) WASD Keys:  Discrete 5  - NOOP[0], W[1], A[2], S[3], D[4]  - params: min: 0, max: 4
-    #2) Action:     Discrete 6  - NOOP[0], Jump[1], Parry[2], Block[3], Attack[4], estus[5] - params: min: 0, max: 5
-    action_space=spaces.MultiDiscrete([5,6])
+    
     metadata=None
-    def __init__(self):
+    def __init__(self, isMultiDiscrete=True):
         with open("bossconfigs/Vordt.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
         self.stateDict={}
         self.best_so_far=-100
-        self.set_initial_state()      
         self.spawnCheckRespondingThread()
         self.paused=False
         self.start_time=-1
         stateDict=self.readState()
+        self.isMultiDiscrete=isMultiDiscrete
+
+        if (isMultiDiscrete):
+            self.no_action=[0,0]
+            #1) WASD Keys:  Discrete 5  - NOOP[0], W[1], A[2], S[3], D[4]  - params: min: 0, max: 4
+            #2) Action:     Discrete 6  - NOOP[0], Jump[1], Attack[2], Block[3], estus[4], , Parry[5] - params: min: 0, max: 5
+            if(self.boss_config["parryable"]):
+                print("Multidiscrete action: Boss is parryable")
+                self.action_space=spaces.MultiDiscrete([5,6])
+            else:
+                print("Multidiscrete action: Boss is NOT parryable")
+                self.action_space=spaces.MultiDiscrete([5,5])
+        else:
+            self.no_action=0
+            #1) WASD Keys:  Discrete 10  - NOOP[0], W[1], A[2], S[3], D[4], Jump[5], Attack[6], Block[7], estus[8], Parry[9]  - params: min: 0, max: 9
+            if(self.boss_config["parryable"]):
+                print("Discrete action: Boss is parryable")
+                self.action_space=spaces.Discrete(10)
+            else:
+                print("Discrete action: Boss is NOT parryable")
+                self.action_space=spaces.Discrete(9)
+        
+        self.set_initial_state()          
         if(stateDict[areaKey]!=self.boss_config["bonfire_area"] and stateDict[areaKey]!=self.boss_config["boss_area"]):
             print("starting and not in bonfire or boss area, will set bonfire correct and suicide")
             self.suicide_and_set_bonfire()
 
     def set_initial_state(self):
-        self.prev_input_actions = NO_ACTION
+        self.prev_input_actions = self.no_action
         self.prev_char_animations = deque([],maxlen=num_prev_animations)
         self.prev_boss_animations = deque([],maxlen=num_prev_animations)
         self.prev_state = deque([], maxlen=num_history_states)
@@ -235,6 +258,7 @@ class dsgym:
                 PressAndFastRelease(F2)
                 PressAndFastRelease(T)
                 self.sendString("updateAddress \n",DOTNETPORT)
+                time.sleep(0.2)
                 stateDict = self.readState(1,DOTNETPORT)
                 bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
                 if(stateDict["targetLock"]=="1" and bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
@@ -334,7 +358,7 @@ class dsgym:
         self.teleToBoss()
         self.setDsInFocus()
         self.set_initial_state()
-        return self.step(NO_ACTION)[0]
+        return self.step(self.no_action)[0]
     
     def waitForUnpause(self):
         #Using Global Speed as a pause button (f7 and f8 in cheatengine)
@@ -435,12 +459,20 @@ class dsgym:
 
         #Keep hero close to boss and incentivise being alive
         if self.calc_dist(stateDict) < REWARD_DISTANCE:
-            reward+=0.001
+            reward+=CLOSE_DISTANCE_REWARD
             self.within_reward_range=True
         else:
-            reward-=0.001
+            reward-=CLOSE_DISTANCE_REWARD
             self.within_reward_range=False
 
+        #Reward for being behind boss
+        diffAngle = self.calc_diff_angle(stateDict)
+        if (abs(diffAngle)>45):
+            print(f"Not in front of boss getting {NOT_IN_FRONT_REWARD} reward")
+            reward+=NOT_IN_FRONT_REWARD
+        if (abs(diffAngle)>135):
+            print(f"Behind boss, getting {BEHIND_REWARD} reward")
+            reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
         numEstus=self.parseStateDictValue(stateDict,"numEstus")
         if (self.numEstusLastFrame>numEstus):
@@ -513,55 +545,108 @@ class dsgym:
 
     def handleAction(self,input_actions):
         self.releasePreviousActions(self.prev_input_actions,input_actions)
-        if input_actions[0] == 1:
-            PressKey(W)
-        if input_actions[0] == 2:
-            PressKey(A)
-        if input_actions[0] == 3:
-            PressKey(S)
-        if input_actions[0] == 4:
-            PressKey(D)
-        if input_actions[1] == 1:
-            PressKey(SPACE)
-        if input_actions[1] == 2:
-            self.timesincecharacterattack=0
-            PressKey(NUM1)
-        else:
-            self.timesincecharacterattack+=1
-        if input_actions[1] == 3:
-            PressKey(NUM2)
-        if input_actions[1] == 4:
-            PressKey(NUM4)
-        if input_actions[1] == 5:
-            if self.numEstusLastFrame == 0:
-                pass
+        if(self.isMultiDiscrete):
+            if input_actions[0] == 1:
+                PressKey(W)
+            if input_actions[0] == 2:
+                PressKey(A)
+            if input_actions[0] == 3:
+                PressKey(S)
+            if input_actions[0] == 4:
+                PressKey(D)
+            if input_actions[1] == 1:
+                PressKey(SPACE)
+            if input_actions[1] == 2:
+                self.timesincecharacterattack=0
+                PressKey(NUM1)
             else:
-                PressKey(R)
+                self.timesincecharacterattack+=1
+            if input_actions[1] == 3:
+                PressKey(NUM2)
+            if input_actions[1] == 4:
+                if self.numEstusLastFrame == 0:
+                    pass
+                else:
+                    PressKey(R)
+            if input_actions[1] == 5:
+                PressKey(NUM4)
+        else:
+            if input_actions == 1:
+                PressKey(W)
+            if input_actions == 2:
+                PressKey(A)
+            if input_actions == 3:
+                PressKey(S)
+            if input_actions== 4:
+                PressKey(D)
+            if input_actions== 5:
+                PressKey(SPACE)
+            if input_actions == 6:
+                self.timesincecharacterattack=0
+                PressKey(NUM1)
+            else:
+                self.timesincecharacterattack+=1
+            if input_actions == 7:
+                PressKey(NUM2)
+            if input_actions == 8:
+                if self.numEstusLastFrame == 0:
+                    pass
+                else:
+                    PressKey(R)
+            if input_actions == 9:
+                PressKey(NUM4)
+        
         self.prev_input_actions=input_actions
 
     def releasePreviousActions(self, prevaction, curaction):
         keys = []
-        if prevaction[0] != curaction[0]:
-            if prevaction[0] ==1:
-                keys.append(W)
-            if prevaction[0] ==2:
-                keys.append(A)
-            if prevaction[0] ==3:
-                keys.append(S)
-            if prevaction[0] ==4:
-                keys.append(D)
-        
-        if prevaction[1] != curaction[1]:
-            if prevaction[1] ==1:        
-                keys.append(SPACE)
-            if prevaction[1] ==2:
-                keys.append(NUM1)
-            if prevaction[1] ==3:
-                keys.append(NUM2)
-            if prevaction[1] ==4:
-                keys.append(NUM4)
-            if prevaction[1] ==5:
-                keys.append(R)
+        if(self.isMultiDiscrete):
+            if prevaction[0] != curaction[0]:
+                if prevaction[0] ==1:
+                    keys.append(W)
+                if prevaction[0] ==2:
+                    keys.append(A)
+                if prevaction[0] ==3:
+                    keys.append(S)
+                if prevaction[0] ==4:
+                    keys.append(D)
+            
+            if prevaction[1] != curaction[1]:
+                if prevaction[1] ==1:        
+                    keys.append(SPACE)
+                if prevaction[1] ==2:
+                    keys.append(NUM1)
+                if prevaction[1] ==3:
+                    keys.append(NUM2)
+                if prevaction[1] ==4:
+                    keys.append(NUM4)
+                if prevaction[1] ==5:
+                    keys.append(R)
+        else:
+            if(prevaction==curaction):
+                return
+            else:
+                if curaction <5: #only release movement key if new movement detected 
+                    if curaction !=1:
+                        keys.append(W)
+                    if curaction !=2:
+                        keys.append(A)
+                    if curaction !=3:
+                        keys.append(S)
+                    if curaction !=4:
+                        keys.append(D)
+                if curaction >=5: #only release action key if new action is detected
+                    if curaction !=5:        
+                        keys.append(SPACE)
+                    if curaction !=6:
+                        keys.append(NUM1)
+                    if curaction !=7:
+                        keys.append(NUM2)
+                    if curaction !=8:
+                        keys.append(NUM4)
+                    if curaction !=9:
+                        keys.append(R)
+
         ReleaseKeys(keys)
 
 #Function makes it possible to hold key pressed, valuable for blocking or moving
@@ -616,6 +701,20 @@ class dsgym:
         heroy=self.parseStateDictValue(stateDict,"heroY")
         return math.sqrt((targetx-herox)**2+(targety-heroy)**2)
 
+    def calc_diff_angle(self,stateDict):
+        targetAngle=self.parseStateDictValue(stateDict,"targetedEntityAngle")
+        heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
+        heroX=self.parseStateDictValue(stateDict,"heroX")
+        heroY=self.parseStateDictValue(stateDict,"heroY")
+        targetedEntityX=self.parseStateDictValue(stateDict,"targetedEntityX")
+        targetedEntityY=self.parseStateDictValue(stateDict,"targetedEntityY")
+        
+        angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY)+math.pi)*57.29
+        if angleBetween >180:
+            angleBetween= 360-angleBetween
+        targetAngle=targetAngle*90
+
+        diffAngle = targetAngle-angleBetween
     def print_state_dict(self,stateDict):
         _ = system('cls') 
         for k in stateDict:
@@ -633,104 +732,89 @@ class dsgym:
             self.bossAnimationSet=loadedobj["bossAnimation"]
             self.charAnimationSet=loadedobj["charAnimation"]
     def add_state(self,action_to_add,stateDict):
-        targetX=self.parseStateDictValue(stateDict,"targetedEntityX")
-        targetY=self.parseStateDictValue(stateDict,"targetedEntityY")
-        heroX=self.parseStateDictValue(stateDict,"heroX")
-        heroY=self.parseStateDictValue(stateDict,"heroY")
+
+        teleX=self.boss_config["boss_teleport"]["heroX"]
+        teleY=self.boss_config["boss_teleport"]["heroY"]
+        teleZ=self.boss_config["boss_teleport"]["heroZ"]
+
+        targetXScaled=(self.parseStateDictValue(stateDict,"targetedEntityX") - teleX)/10
+        targetYScaled=(self.parseStateDictValue(stateDict,"targetedEntityY") - teleY)/10
+        heroXScaled=(self.parseStateDictValue(stateDict,"heroX") - teleX)/10
+        heroYScaled=(self.parseStateDictValue(stateDict,"heroY") - teleY)/10
+        
 
         stateToAdd=np.zeros(num_state_scalars)
-        stateToAdd[action_to_add[0]]=1
-        stateToAdd[action_to_add[1]+5]=1
-
+        if(self.isMultiDiscrete):
+            stateToAdd[action_to_add[0]]=1
+            stateToAdd[action_to_add[1]+5]=1
+        else:
+            stateToAdd[action_to_add]=1
         targetMaxHp=self.parseStateDictValue(stateDict,"TargetMaxHp")
         if targetMaxHp !=0:
             stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/targetMaxHp
-        stateToAdd[13]=targetX
-        stateToAdd[14]=targetY
+        stateToAdd[13]=targetXScaled
+        stateToAdd[14]=targetYScaled
         stateToAdd[15]=self.parseStateDictValue(stateDict,"targetedEntityZ")
-        targetAngle=self.parseStateDictValue(stateDict,"targetedEntityAngle")
-        stateToAdd[16]=targetAngle
-        stateToAdd[17]=self.parseStateDictValue(stateDict,"targetAttack1")
-        stateToAdd[18]=float(self.parseStateDictValue(stateDict,"targetAttack2"))
-        stateToAdd[19]=self.parseStateDictValue(stateDict,"targetMovement1")
-        stateToAdd[20]=self.parseStateDictValue(stateDict,"targetMovement2")
-        stateToAdd[21]=self.parseStateDictValue(stateDict,"targetComboAttack")
+        stateToAdd[16]=self.parseStateDictValue(stateDict,"targetMovement1")
+        stateToAdd[17]=self.parseStateDictValue(stateDict,"targetMovement2")
+        stateToAdd[18]=self.parseStateDictValue(stateDict,"targetComboAttack")
         heroMaxHp=self.parseStateDictValue(stateDict,"heroMaxHp")
         if heroMaxHp!=0:
-            stateToAdd[22]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
-        stateToAdd[23]=heroX
-        stateToAdd[24]=heroY
+            stateToAdd[19]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
+        stateToAdd[20]=heroXScaled
+        stateToAdd[21]=heroYScaled
 
         dist=self.calc_dist(stateDict)
-        stateToAdd[25]=dist
+        stateToAdd[22]=dist
         heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
-        stateToAdd[26]=heroAngle
+        stateToAdd[23]=heroAngle
         heroMaxSp=self.parseStateDictValue(stateDict,"heroMaxSp")
         if heroMaxSp!=0:
-            stateToAdd[27]=self.parseStateDictValue(stateDict,"heroSp")/heroMaxSp
-        stateToAdd[28]=stateDict["reward"]
-        stateToAdd[29]=self.timesincecharacterattack
-        stateToAdd[30]=self.timesincebossattack
+            stateToAdd[24]=self.parseStateDictValue(stateDict,"heroSp")/heroMaxSp
+        stateToAdd[25]=stateDict["reward"]
+        stateToAdd[26]=self.timesincecharacterattack
+        stateToAdd[27]=self.timesincebossattack
         estus=self.parseStateDictValue(stateDict,"numEstus")
-        stateToAdd[31]=estus
+        stateToAdd[28]=estus
         if estus>0:
-            stateToAdd[32]=1
+            stateToAdd[29]=1
         if self.within_reward_range:
-            stateToAdd[33]=1
+            stateToAdd[30]=1
         if targetMaxHp !=0:
-            stateToAdd[34]=self.bosshpdiff/targetMaxHp
+            stateToAdd[31]=self.bosshpdiff/targetMaxHp
         if heroMaxHp!=0:
-            stateToAdd[35]=self.charhpdiff/heroMaxHp
-        print("Char hp diff: ",stateToAdd[35], " boss hp diff: ",stateToAdd[34])
-        stateToAdd[36]=math.cos(targetAngle)
-        stateToAdd[37]=heroX-targetX
-        stateToAdd[38]=heroY-targetY
-        stateToAdd[39]=self.timesincebosslosthp
-        stateToAdd[40]=self.bossAnimationFrameCount
-        stateToAdd[41]=self.charAnimationFrameCount
-        stateToAdd[42]=self.timesinceherolosthp
-        stateToAdd[43]=self.timesinceheroparry
-        stateToAdd[44]=time.time()-self.start_time
+            stateToAdd[32]=self.charhpdiff/heroMaxHp
+        stateToAdd[33]=self.bossAnimationFrameCount
+        stateToAdd[34]=self.charAnimationFrameCount
+        stateToAdd[35]=self.timesinceherolosthp
 
-        targetAngle=self.parseStateDictValue(stateDict,"targetedEntityAngle")
-        heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
-        heroX=self.parseStateDictValue(stateDict,"heroX")
-        heroY=self.parseStateDictValue(stateDict,"heroY")
-        targetedEntityX=self.parseStateDictValue(stateDict,"targetedEntityX")
-        targetedEntityY=self.parseStateDictValue(stateDict,"targetedEntityY")
-        
-        angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY)+math.pi)*57.29
-        if angleBetween >180:
-            angleBetween= 360-angleBetween
-        targetAngle=targetAngle*90
-
-        diffAngle = targetAngle-angleBetween
+        diffAngle = self.calc_diff_angle(stateDict)
         diffAngleScaled = diffAngle/180
-        stateToAdd[45]=diffAngleScaled
-        stateToAdd[46]=abs(diffAngleScaled)
+        stateToAdd[36]=diffAngleScaled
+        stateToAdd[37]=abs(diffAngleScaled)
         absDiff= abs(diffAngle)
         if absDiff>135:
-            stateToAdd[47]=1
+            stateToAdd[38]=1
         elif absDiff<=135 and absDiff>=45:
             if diffAngle>0:
-                stateToAdd[48]=1
+                stateToAdd[39]=1
             else:
-                stateToAdd[49]=1
+                stateToAdd[40]=1
         else:
-            stateToAdd[50]=1
+            stateToAdd[41]=1
         
         if(self.stateDict["didRead"]):
-            stateToAdd[51]=1
-        charAnimationStartIndex=52
-        
-        #binary encode current and prev animations
-        for j in range(num_prev_animations):
-            bossAnimationAsBinary = bin_array(self.prev_boss_animations[j],7)
-            charAnimationAsBinary = bin_array(self.prev_char_animations[j],7)
-            for i in range(7):
-                stateToAdd[charAnimationStartIndex+i+(14*j)]=bossAnimationAsBinary[i]
-            for i in range(7):
-                stateToAdd[charAnimationStartIndex+7+i+(14*j)]=charAnimationAsBinary[i]          
+            stateToAdd[42]=1
+        charAnimationStartIndex=43
+        #Allow for 100 char animations and 100 boss animations
+        charAnimationLength=100
+        bossAnimationStartIndex= charAnimationStartIndex+charAnimationLength
+
+        #One hot encode prev and current animations
+        charAnimationIndex=charAnimationStartIndex+self.prev_char_animations[0]
+        stateToAdd[charAnimationIndex]=1
+        bossAnimationIndex=bossAnimationStartIndex+self.prev_boss_animations[0]
+        stateToAdd[bossAnimationIndex]=1
 
         if self.fill_frame_buffer:
             for _ in range(num_history_states):

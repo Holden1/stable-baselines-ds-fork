@@ -1,5 +1,6 @@
 name: "Vordt of the boreal valley"
 base_hp: 1328
+parryable: False
 parry_animation: "cantbeparried"
 boss_area: "300007"
 bonfire_area: "300001"

@@ -17,15 +17,11 @@ def main():
         heroY=mygym.parseStateDictValue(state,"heroY")
         targetedEntityX=mygym.parseStateDictValue(state,"targetedEntityX")
         targetedEntityY=mygym.parseStateDictValue(state,"targetedEntityY")
-        time.sleep(1)
         
         angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY)+math.pi)*57.29
         if angleBetween >180:
             angleBetween= 360-angleBetween
         targetAngle=targetAngle*90
-        #print("Angle char position: ",angleBetween)
-        #print("Target angle position: ",targetAngle)
-        #print("deg between: ",targetAngle-angleBetween)
 
         diffAngle = targetAngle-angleBetween
         absDiff= abs(diffAngle)
