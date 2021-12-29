@@ -741,7 +741,6 @@ class dsgym:
         targetYScaled=(self.parseStateDictValue(stateDict,"targetedEntityY") - teleY)/10
         heroXScaled=(self.parseStateDictValue(stateDict,"heroX") - teleX)/10
         heroYScaled=(self.parseStateDictValue(stateDict,"heroY") - teleY)/10
-        
 
         stateToAdd=np.zeros(num_state_scalars)
         if(self.isMultiDiscrete):
