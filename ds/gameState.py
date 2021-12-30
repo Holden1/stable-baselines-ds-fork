@@ -413,7 +413,7 @@ class dsgym:
                 PressAndRelease(G)
                 PressAndRelease(E)
                 time.sleep(5)
-                reward=1
+                #reward=1 Outcommented Dont give huge positive reward for killing as that destroys training
             PressAndRelease(U)
             self.suicide_and_set_bonfire()
             
@@ -468,10 +468,8 @@ class dsgym:
         #Reward for being behind boss
         diffAngle = self.calc_diff_angle(stateDict)
         if (abs(diffAngle)>45):
-            print(f"Not in front of boss getting {NOT_IN_FRONT_REWARD} reward")
             reward+=NOT_IN_FRONT_REWARD
         if (abs(diffAngle)>135):
-            print(f"Behind boss, getting {BEHIND_REWARD} reward")
             reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
         numEstus=self.parseStateDictValue(stateDict,"numEstus")
@@ -714,7 +712,7 @@ class dsgym:
             angleBetween= 360-angleBetween
         targetAngle=targetAngle*90
 
-        diffAngle = targetAngle-angleBetween
+        return targetAngle-angleBetween
     def print_state_dict(self,stateDict):
         _ = system('cls') 
         for k in stateDict:
