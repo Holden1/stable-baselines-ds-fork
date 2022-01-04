@@ -188,10 +188,13 @@ class dsgym:
     def CheckAndHandleNotResponding(self):
         while True:
             #Cheat engine might not be responding if it fails to attach debugger
-            if(self.notresponding("DarkSoulsIII.exe") or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe")):
+            dsNotResponding=self.notresponding("DarkSoulsIII.exe")
+            errorWindowExists=self.window_exists("Error")
+            cheatEngineNotResponding=self.notresponding("cheatengine-x86_64.exe")
+            if(dsNotResponding or errorWindowExists or cheatEngineNotResponding):
                 with not_responding_lock:
                     self.releaseAll()
-                    print("Game not responding, waiting 5 seconds until restart")
+                    print(f"Game not responding, waiting 5 seconds until restart ds {dsNotResponding} error {errorWindowExists} CE {cheatEngineNotResponding}")
                     PressAndRelease(U)
                     time.sleep(5)
                     if (self.notresponding("DarkSoulsIII.exe")or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe")):

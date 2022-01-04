@@ -46,7 +46,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--load-dir", type=str, default=None,
                         help="directory to force load model from and continue training")
-    logger.configure("D:/openAi/ppo2/vordt/"+time.strftime("%Y_%m_%d-%H_%M_%S"),["tensorboard","stdout"])
+    logger.configure("D:/openAi/ppo2/Dancer/"+time.strftime("%Y_%m_%d-%H_%M_%S"),["tensorboard","stdout"])
     args = parser.parse_args()
     train(num_timesteps=10000000,model_to_load=args.load_dir)
 

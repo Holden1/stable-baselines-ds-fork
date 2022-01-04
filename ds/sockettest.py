@@ -16,6 +16,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.settimeout(100)
-        s.send(b'LastBonfire=3002950 \n')
+        s.send(b'heroX=27.73 heroY=45.86 heroZ=-25.64 \n')
 
 print("state took:",time.time()-start_time2)
