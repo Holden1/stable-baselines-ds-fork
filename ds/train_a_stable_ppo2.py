@@ -19,8 +19,8 @@ def train(num_timesteps,model_to_load):
         policy=MlpPolicy
         lr=3e-4
 
-        model = PPO2(policy=policy, env=env, n_steps=128, nminibatches=1, lam=0.95, gamma=0.99, noptepochs=10,
-                 ent_coef=0.01, learning_rate=linear_schedule(lr), cliprange=0.2)
+        model = PPO2(policy=policy, env=env, n_steps=64, nminibatches=1, lam=0.95, gamma=0.99, noptepochs=10,
+                 ent_coef=0.01, learning_rate=lr, cliprange=0.2)
         if model_to_load:
             env = DummyVecEnv([dsgym])
             #env = VecNormalize.load(model_to_load ,env)
@@ -28,7 +28,7 @@ def train(num_timesteps,model_to_load):
             env.load(model_to_load)
             model.set_env(env)
             print("Loaded model from: ",model_to_load)
-            model.set_learning_rate_func(linear_schedule_start_zero(lr))
+            #model.set_learning_rate_func(lr)
         model.learn(total_timesteps=num_timesteps)
     except KeyboardInterrupt:
         print("Saving on keyinterrupt")

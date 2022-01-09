@@ -20,13 +20,11 @@ import yaml
 
 
 DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
-FRAME_DIFF=0.2
+FRAME_DIFF=0.3
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
 
-
-HERO_BASE_HP=454
-HEALTH_REWARD_MULTIPLIER=2.5
+HEALTH_REWARD_MULTIPLIER=5.0
 REWARD_DISTANCE=5
 ESTUS_NEGATIVE_REWARD=0.1
 PARRY_REWARD=0.1
@@ -34,7 +32,8 @@ TIMESTEPS_DEFENSIVE_BEHAVIOR=2000
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
 BEHIND_REWARD=0.002
 NOT_IN_FRONT_REWARD=0.001
-CLOSE_DISTANCE_REWARD=0.001
+CLOSE_DISTANCE_REWARD=0.000
+BELOW_HALF_HP_NEGATIVE_REWARD=0.001
 
 
 not_responding_lock=threading.Lock()
@@ -45,7 +44,7 @@ charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
 num_state_scalars=243
-num_history_states=5
+num_history_states=1
 num_prev_animations=1
 
 parryAnimationName='DamageParryEnemy1' 
@@ -70,7 +69,7 @@ class dsgym:
     
     metadata=None
     def __init__(self, isMultiDiscrete=True):
-        with open("bossconfigs/Vordt.yaml", "r") as ymlfile:
+        with open("bossconfigs/Dancer.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
@@ -119,7 +118,7 @@ class dsgym:
         self.bossHpLastFrame=self.boss_config["base_hp"]
         self.bossAnimationLastFrame='??'
         self.bossAnimationFrameCount=0
-        self.charHpLastFrame=HERO_BASE_HP
+        self.charHpLastFrame=0
         self.charAnimationLastFrame='??'
         self.charAnimationFrameCount=0
         self.timesincecharacterattack=100
@@ -244,7 +243,7 @@ class dsgym:
             self.waitForUnpause()
             self.check_responding_lock()   
             PressAndFastRelease(F1)
-            self.setCeState(self.boss_config["fog_gate_teleport"])
+            self.setCeState(self.boss_config["fog_gate_teleport"],2)
             PressAndFastRelease(Q)
             PressAndFastRelease(F1)
             PressAndRelease(U)#Normal speed
@@ -255,11 +254,12 @@ class dsgym:
             #Check whether we have entered boss area
             stateDict=self.readState()
             if(stateDict[areaKey]==self.boss_config["boss_area"]):
-                self.setCeState(self.boss_config["boss_teleport"])
+                self.setCeState(self.boss_config["boss_teleport"],2)
                 PressAndFastRelease(F1)
                 PressAndFastRelease(Q)
                 PressAndFastRelease(F2)
                 PressAndFastRelease(T)
+                time.sleep(0.2)
                 self.sendString("updateAddress \n",DOTNETPORT)
                 time.sleep(0.2)
                 stateDict = self.readState(1,DOTNETPORT)
@@ -295,13 +295,14 @@ class dsgym:
         PressAndRelease(F2)
         PressAndRelease(F3)
 
-    def setCeState(self,dict):
+    def setCeState(self,dict,numtimes=1):
         str_to_send = ""
         
         for key,value in dict.items():
             str_to_send+=str(key)+"="+str(value)+" "
         str_to_send+="\n"
-        self.sendString(str_to_send)
+        for _ in range(numtimes):
+            self.sendString(str_to_send)
     
     def sendString(self, stringToSend,port=PORT):
         hasSent=False
@@ -446,12 +447,15 @@ class dsgym:
                 reward -=DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD
 
         #If our hp is different from last frame, can result in reward if char got healed
-        if stateDict[charHpKey]!="??" and int(stateDict[charHpKey])!=int(self.charHpLastFrame):
+        if stateDict[charHpKey]!="??" and int(stateDict[charHpKey])!=int(self.charHpLastFrame) and int(self.charHpLastFrame)!=0:
             self.charhpdiff=int(self.charHpLastFrame)-int(stateDict[charHpKey])
-            reward-=self.charhpdiff/HERO_BASE_HP
+            reward-=self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp")
             self.timesinceherolosthp=0
         else:
             self.timesinceherolosthp+=1
+        
+        if stateDict[charHpKey]!="??" and int(stateDict[charHpKey]) < self.parseStateDictValue(stateDict,"heroMaxHp") * 0.5:
+            reward-=BELOW_HALF_HP_NEGATIVE_REWARD
 
         if self.bossAnimationLastFrame!=parryAnimationName and stateDict['targetAnimationName']==parryAnimationName:
             reward+=PARRY_REWARD
@@ -476,9 +480,8 @@ class dsgym:
             reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
         numEstus=self.parseStateDictValue(stateDict,"numEstus")
-        if (self.numEstusLastFrame>numEstus):
-            #penalize using estus to prevent spam
-            #also prevents estus being used above ~80%life
+        if (self.numEstusLastFrame>numEstus and self.parseStateDictValue(stateDict,"heroMaxHp") == self.charHpLastFrame):
+            print("negative reward for using estus at full hp")
             reward-=ESTUS_NEGATIVE_REWARD
         self.numEstusLastFrame=numEstus
 
@@ -520,6 +523,7 @@ class dsgym:
         self.add_state(input_actions,stateDict)
         self.episode_len+=1
         self.episode_rew+=reward
+        #print(f"reward: {reward}")
         if terminal:
             self.releaseAll()
             self.info={'episode':{'r':self.episode_rew,'l':self.episode_len,'kill':stateDict[bossHpKey]=="0",'bosshp':self.bossHpLastFrame}}
@@ -749,7 +753,7 @@ class dsgym:
             stateToAdd[action_to_add[1]+5]=1
         else:
             stateToAdd[action_to_add]=1
-        targetMaxHp=self.parseStateDictValue(stateDict,"TargetMaxHp")
+        targetMaxHp=self.parseStateDictValue(stateDict,"TargetBaseMaxHp")
         if targetMaxHp !=0:
             stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/targetMaxHp
         stateToAdd[13]=targetXScaled
@@ -761,13 +765,13 @@ class dsgym:
         heroMaxHp=self.parseStateDictValue(stateDict,"heroMaxHp")
         if heroMaxHp!=0:
             stateToAdd[19]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
-        stateToAdd[20]=heroXScaled
-        stateToAdd[21]=heroYScaled
+            if self.parseStateDictValue(stateDict,"heroHp") == heroMaxHp:
+                stateToAdd[20]=1
+        stateToAdd[21]=heroXScaled
+        stateToAdd[22]=heroYScaled
 
         dist=self.calc_dist(stateDict)
-        stateToAdd[22]=dist
-        heroAngle=self.parseStateDictValue(stateDict,"heroAngle")
-        stateToAdd[23]=heroAngle
+        stateToAdd[23]=dist
         heroMaxSp=self.parseStateDictValue(stateDict,"heroMaxSp")
         if heroMaxSp!=0:
             stateToAdd[24]=self.parseStateDictValue(stateDict,"heroSp")/heroMaxSp

@@ -332,7 +332,7 @@ class PPO2(ActorCriticRLModel):
                 batch_size = self.n_batch // self.nminibatches
                 t_start = time.time()
                 frac = 1.0 - (update - 1.0) / n_updates
-                lr_now = self.learning_rate(frac,update)
+                lr_now = self.learning_rate(frac)
                 cliprange_now = self.cliprange(frac)
                 cliprange_vf_now = cliprange_vf(frac)
 
