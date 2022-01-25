@@ -20,20 +20,21 @@ import yaml
 
 
 DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
-FRAME_DIFF=0.3
+FRAME_DIFF=0.2
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
 
-HEALTH_REWARD_MULTIPLIER=5.0
+HEALTH_REWARD_MULTIPLIER=2.5
 REWARD_DISTANCE=5
-ESTUS_NEGATIVE_REWARD=0.1
+ESTUS_NEGATIVE_REWARD=0.2
+ESTUS_HP_SCALING=1.0
 PARRY_REWARD=0.1
 TIMESTEPS_DEFENSIVE_BEHAVIOR=2000
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
 BEHIND_REWARD=0.002
 NOT_IN_FRONT_REWARD=0.001
 CLOSE_DISTANCE_REWARD=0.000
-BELOW_HALF_HP_NEGATIVE_REWARD=0.001
+BELOW_HALF_HP_NEGATIVE_REWARD=0.0
 
 
 not_responding_lock=threading.Lock()
@@ -44,7 +45,7 @@ charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
 num_state_scalars=243
-num_history_states=1
+num_history_states=5
 num_prev_animations=1
 
 parryAnimationName='DamageParryEnemy1' 
@@ -121,11 +122,11 @@ class dsgym:
         self.charHpLastFrame=0
         self.charAnimationLastFrame='??'
         self.charAnimationFrameCount=0
-        self.timesincecharacterattack=100
-        self.timesincebossattack=100
-        self.timesincebosslosthp=100
-        self.timesinceherolosthp=100
-        self.timesinceheroparry=100
+        self.timesincecharacterattack=0
+        self.timesincebossattack=0
+        self.timesincebosslosthp=0
+        self.timesinceherolosthp=0
+        self.timesinceheroparry=0
         self.bosshpdiff=0
         self.charhpdiff=0
         self.numEstusLastFrame=0
@@ -449,7 +450,10 @@ class dsgym:
         #If our hp is different from last frame, can result in reward if char got healed
         if stateDict[charHpKey]!="??" and int(stateDict[charHpKey])!=int(self.charHpLastFrame) and int(self.charHpLastFrame)!=0:
             self.charhpdiff=int(self.charHpLastFrame)-int(stateDict[charHpKey])
-            reward-=self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp")
+            if(self.charhpdiff <0):
+                reward-=(self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp"))*ESTUS_HP_SCALING
+            else:
+                reward-=self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp")
             self.timesinceherolosthp=0
         else:
             self.timesinceherolosthp+=1
@@ -480,8 +484,7 @@ class dsgym:
             reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
         numEstus=self.parseStateDictValue(stateDict,"numEstus")
-        if (self.numEstusLastFrame>numEstus and self.parseStateDictValue(stateDict,"heroMaxHp") == self.charHpLastFrame):
-            print("negative reward for using estus at full hp")
+        if (self.numEstusLastFrame>numEstus):
             reward-=ESTUS_NEGATIVE_REWARD
         self.numEstusLastFrame=numEstus
 
@@ -624,9 +627,9 @@ class dsgym:
                 if prevaction[1] ==3:
                     keys.append(NUM2)
                 if prevaction[1] ==4:
-                    keys.append(NUM4)
-                if prevaction[1] ==5:
                     keys.append(R)
+                if prevaction[1] ==5:
+                    keys.append(NUM4)
         else:
             if(prevaction==curaction):
                 return
