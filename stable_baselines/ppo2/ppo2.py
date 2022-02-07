@@ -352,7 +352,8 @@ class PPO2(ActorCriticRLModel):
                 mb_loss_vals = []
                 if states is None:  # nonrecurrent version
                     update_fac = max(self.n_batch // self.nminibatches // self.noptepochs, 1)
-                    inds = np.arange(self.n_batch)
+                    print("len of obs ", len(obs), " nbatch ", self.n_batch)
+                    inds = np.arange(len(obs))
                     for epoch_num in range(self.noptepochs):
                         np.random.shuffle(inds)
                         for start in range(0, self.n_batch, batch_size):

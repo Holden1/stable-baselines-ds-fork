@@ -1,9 +1,9 @@
 import math
 import time
-from gameState import dsgym
+from collections import deque
 
-env= dsgym()
-while(True):
-    time.sleep(0.1)
-    env.print_state_dict(env.readState())
-    print("Dist:",env.calc_dist(env.readState()))
+prev_char_animations = deque([],maxlen=1)
+prev_char_animations.append(1)
+prev_char_animations.append(2)
+prev_char_animations.append(3)
+print("Dist:",prev_char_animations[-1])

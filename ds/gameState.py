@@ -44,9 +44,9 @@ charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
-num_state_scalars=243
+num_state_scalars=272
 num_history_states=5
-num_prev_animations=1
+num_prev_animations=3
 
 parryAnimationName='DamageParryEnemy1' 
 
@@ -221,6 +221,8 @@ class dsgym:
 
                             if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
                                 break #we are in game
+                            else:
+                                print("Area from statedict: ",stateDict[areaKey])
 
                         time.sleep(5)
                         print("Assuming in game now")
@@ -331,8 +333,8 @@ class dsgym:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((HOST, port))
                 self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-                self.socket.send(b'getState \n')
                 self.socket.settimeout(timeout)
+                self.socket.send(b'getState \n')
                 data = self.socket.recv(1024)
                 loglines=data.decode("utf-8")
             except socket.timeout:
@@ -450,10 +452,12 @@ class dsgym:
         #If our hp is different from last frame, can result in reward if char got healed
         if stateDict[charHpKey]!="??" and int(stateDict[charHpKey])!=int(self.charHpLastFrame) and int(self.charHpLastFrame)!=0:
             self.charhpdiff=int(self.charHpLastFrame)-int(stateDict[charHpKey])
-            if(self.charhpdiff <0):
-                reward-=(self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp"))*ESTUS_HP_SCALING
-            else:
-                reward-=self.charhpdiff/self.parseStateDictValue(stateDict,"heroMaxHp")
+            heroMaxHp=self.parseStateDictValue(stateDict,"heroMaxHp")
+            if heroMaxHp != 0:
+                if(self.charhpdiff <0):
+                    reward-=(self.charhpdiff/heroMaxHp)*ESTUS_HP_SCALING
+                else:
+                    reward-=self.charhpdiff/heroMaxHp
             self.timesinceherolosthp=0
         else:
             self.timesinceherolosthp+=1
@@ -817,11 +821,21 @@ class dsgym:
         charAnimationLength=100
         bossAnimationStartIndex= charAnimationStartIndex+charAnimationLength
 
-        #One hot encode prev and current animations
-        charAnimationIndex=charAnimationStartIndex+self.prev_char_animations[0]
+        #One hot encode current animations
+        charAnimationIndex=charAnimationStartIndex+self.prev_char_animations[-1]
         stateToAdd[charAnimationIndex]=1
-        bossAnimationIndex=bossAnimationStartIndex+self.prev_boss_animations[0]
+        bossAnimationIndex=bossAnimationStartIndex+self.prev_boss_animations[-1]
         stateToAdd[bossAnimationIndex]=1
+
+        historicalActionStartIndex=244
+        #binary encode previous animations
+        for j in range(num_prev_animations-1):
+            bossAnimationAsBinary = bin_array(self.prev_boss_animations[j],7)
+            charAnimationAsBinary = bin_array(self.prev_char_animations[j],7)
+            for i in range(7):
+                stateToAdd[historicalActionStartIndex+i+(14*j)]=bossAnimationAsBinary[i]
+            for i in range(7):
+                stateToAdd[historicalActionStartIndex+7+i+(14*j)]=charAnimationAsBinary[i]      
 
         if self.fill_frame_buffer:
             for _ in range(num_history_states):
