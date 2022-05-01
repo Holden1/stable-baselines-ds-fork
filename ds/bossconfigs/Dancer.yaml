@@ -1,0 +1,17 @@
+name: "Dancer"
+base_hp: 5111
+parryable: False
+parry_animation: "cantbeparried"
+boss_area: "300006"
+bonfire_area: "300001"
+bonfire_id: 3002950 #High Wall of Lothric
+fog_gate_teleport:
+ heroX: 27.68
+ heroY: 128.99
+ heroZ: -8.27
+ heroAngle: 3.10
+boss_teleport:
+ heroAngle: 3.10
+ heroX: 28.25
+ heroY: 140.21
+ heroZ: -9.87
