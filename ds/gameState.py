@@ -209,7 +209,7 @@ class dsgym:
                         w.find_window_wildcard(".*ARK SOULS.*")
                         iter=0
                         print("Spamming E to get into game",iter)
-                        while iter<1000:
+                        while iter<100:
                             try:
                                 w.set_foreground()
                             except:
@@ -217,17 +217,19 @@ class dsgym:
                                                    
                             PressAndFastRelease(E)
                             iter+=1
-                            stateDict=self.readState()
+                            time.sleep(1)
+                            stateDict=self.readState(should_retry=False)
 
-                            if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
-                                break #we are in game
+                            if(stateDict["didRead"] and stateDict[areaKey]==self.boss_config["bonfire_area"]):
+                                time.sleep(5)
+                                print("Assuming in game now")
+                                PressAndRelease(T)
+                                ReleaseKey(E)
+                                break #To start monitoring again if something is not responding
+                            elif not stateDict["didRead"]:
+                                print("Didn't read trying to get back into game")
                             else:
-                                print("Area from statedict: ",stateDict[areaKey])
-
-                        time.sleep(5)
-                        print("Assuming in game now")
-                        PressAndRelease(T)
-                        ReleaseKey(E)
+                                print("Area from statedict: ",stateDict[areaKey])                 
             time.sleep(5)
 
 
@@ -324,7 +326,7 @@ class dsgym:
             hasSent=True
 
 
-    def readState(self,timeout=10,port=31000):
+    def readState(self,timeout=10,port=31000,should_retry=True):
         hasRead=False
         start_read=time.time()
 
@@ -341,8 +343,12 @@ class dsgym:
                 print("Timeout using prev state instead, closing socket so data flushed")
                 break
             except Exception:
-                print("Couldn't read from socket, will retry connecting")
-                continue
+                if should_retry:
+                    print("Couldn't read from socket, will retry connecting")
+                    continue
+                else:
+                    print("Couldn't read from socket, wont retry")
+                    break
             finally:
                 self.socket.close()
             if not loglines or len(loglines.split(";;"))<22:
@@ -420,7 +426,7 @@ class dsgym:
                 PressAndRelease(G)
                 PressAndRelease(E)
                 time.sleep(5)
-                #reward=1 Outcommented Dont give huge positive reward for killing as that destroys training
+                reward=1
             PressAndRelease(U)
             self.suicide_and_set_bonfire()
             
@@ -439,7 +445,7 @@ class dsgym:
         #handle lost life of boss or char  
         self.bosshpdiff=0
         self.charhpdiff=0
-        if stateDict[bossHpKey]!="??" and self.bossHpLastFrame>int(stateDict[bossHpKey]):
+        if stateDict[bossHpKey]!="??" and self.bossHpLastFrame>int(stateDict[bossHpKey]) and int(stateDict[bossHpKey])>=0:
             self.bosshpdiff=self.bossHpLastFrame-int(stateDict[bossHpKey])
             reward+=(self.bosshpdiff/self.boss_config["base_hp"])*HEALTH_REWARD_MULTIPLIER
             self.timesincebosslosthp=0
@@ -533,7 +539,10 @@ class dsgym:
         #print(f"reward: {reward}")
         if terminal:
             self.releaseAll()
-            self.info={'episode':{'r':self.episode_rew,'l':self.episode_len,'kill':stateDict[bossHpKey]=="0",'bosshp':self.bossHpLastFrame}}
+            loggedBossHp=self.bossHpLastFrame
+            if(loggedBossHp<0 or loggedBossHp>self.boss_config["base_hp"]):
+                loggedBossHp = self.boss_config["base_hp"]
+            self.info={'episode':{'r':self.episode_rew,'l':self.episode_len,'kill':stateDict[bossHpKey]=="0",'bosshp':loggedBossHp}}
             #Save shadowplay recording
             
             if(self.episode_rew>self.best_so_far and SAVE_PROGRESS_SHADOWPLAY):

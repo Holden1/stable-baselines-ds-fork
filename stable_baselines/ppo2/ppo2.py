@@ -321,7 +321,7 @@ class PPO2(ActorCriticRLModel):
 
             callback.on_training_start(locals(), globals())
 
-            save_interval=30
+            save_interval=5
 
             for update in range(1, n_updates + 1):
                 assert self.n_batch % self.nminibatches == 0, ("The number of minibatches (`nminibatches`) "
