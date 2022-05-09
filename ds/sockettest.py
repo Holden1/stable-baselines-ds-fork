@@ -13,9 +13,11 @@ FRAME_DIFF=0.01
 start_time=time.time()
 start_time2=time.time() 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
+        s.connect((HOST, DOTNETPORT))
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.settimeout(100)
-        s.send(b'heroX=27.64 heroY=45.86 heroZ=-25.64 \n')
-
+        s.send(b'getState \n')
+        data = s.recv(1024)
+        loglines=data.decode("utf-8")
+        print(loglines)
 print("state took:",time.time()-start_time2)

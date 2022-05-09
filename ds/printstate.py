@@ -10,7 +10,7 @@ def main():
     mygym=dsgym()
     
     while 1:
-        state=mygym.readState()
+        state=mygym.readState(port=31001)
         targetAngle=mygym.parseStateDictValue(state,"targetedEntityAngle")
         heroAngle=mygym.parseStateDictValue(state,"heroAngle")
         heroX=mygym.parseStateDictValue(state,"heroX")

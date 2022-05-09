@@ -63,7 +63,7 @@ namespace DsCheatEngineServer
 
         private static string getDsState(Dictionary<string, long[]> cheatEngineAddressDictionary)
         {
-            Process process = Process.GetProcessesByName("DarkSoulsIII")[0];
+            Process process = Process.GetProcessesByName("Eldenring")[0];
             ProcessMemory pm = ProcessMemory.ForProcess(process);
 
 

@@ -24,3 +24,16 @@ C:\Users\Nikolaj\Documents\stable-baselines\ds\DsCheatEngineServer\DsCheatEngine
 C:\Users\Nikolaj\Documents\stable-baselines\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.dll
 C:\Users\Nikolaj\Documents\stable-baselines\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.pdb
 C:\Users\Nikolaj\Documents\stable-baselines\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.genruntimeconfig.cache
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.exe
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.deps.json
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.runtimeconfig.json
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.runtimeconfig.dev.json
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.dll
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\bin\Debug\netcoreapp3.1\DsCheatEngineServer.pdb
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.csproj.AssemblyReference.cache
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.AssemblyInfoInputs.cache
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.AssemblyInfo.cs
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.csproj.CoreCompileInputs.cache
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.dll
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.pdb
+C:\Users\Nikolaj\Documents\stable-baselines-ds-fork\ds\DsCheatEngineServer\DsCheatEngineServer\obj\Debug\netcoreapp3.1\DsCheatEngineServer.genruntimeconfig.cache

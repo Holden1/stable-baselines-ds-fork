@@ -1,0 +1,15 @@
+name: "Margit"
+base_hp: 4174
+idle_animation: "2000020"
+parryable: False
+parry_animation: "cantbeparried"
+fog_gate_teleport:
+ heroX: 19.96924973
+ heroZ: -11.72706509
+ heroY: -7.051832676
+ heroAngle: 0.7588592172
+boss_teleport:
+ heroX: -1.88
+ heroZ: -4.037
+ heroY: -17.39
+ heroAngle: 0.68

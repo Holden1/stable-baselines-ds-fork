@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "jgxLjWpuku5IW7tkr/hQsqoLNlG0SGWZf7SyhdEwURU9bFi9meTaGsWu05JKmNIcm/3uavq6un/0VxYH4cI1TA==",
+  "dgSpecHash": "SbeW3zjgoY9BWaKn5BTnsHdHD8GYRYyDzjAfdcBS5LD3sAP80D0TLLQp+gJWZhpUojzNa/2x7kq241PE9jr92Q==",
   "success": true,
-  "projectFilePath": "C:\\Users\\Nikolaj\\Documents\\stable-baselines\\ds\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
+  "projectFilePath": "C:\\Users\\Nikolaj\\Documents\\stable-baselines-ds-fork\\ds\\DsCheatEngineServer\\DsCheatEngineServer\\DsCheatEngineServer.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }

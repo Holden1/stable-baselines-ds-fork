@@ -19,7 +19,10 @@ import socket
 import yaml
 
 
-DARKSOULSDIR="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game\DarkSoulsIII.exe"
+ELDENRINGDIR="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING\Game\eldenring.exe"
+EXECUTABLENAME="eldenring.exe"
+CEEXE="cheatengine-x86_64-SSE4-AVX2.exe"
+GAMEWILDCARD="LDEN RING"
 FRAME_DIFF=0.2
 SAVE_PROGRESS_SHADOWPLAY=False
 SAVE_KILLS_SHADOWPLAY=True
@@ -39,7 +42,6 @@ BELOW_HALF_HP_NEGATIVE_REWARD=0.0
 
 not_responding_lock=threading.Lock()
 
-areaKey="locationArea"
 charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
@@ -103,9 +105,6 @@ class dsgym:
                 self.action_space=spaces.Discrete(9)
         
         self.set_initial_state()          
-        if(stateDict[areaKey]!=self.boss_config["bonfire_area"] and stateDict[areaKey]!=self.boss_config["boss_area"]):
-            print("starting and not in bonfire or boss area, will set bonfire correct and suicide")
-            self.suicide_and_set_bonfire()
 
     def set_initial_state(self):
         self.prev_input_actions = self.no_action
@@ -160,16 +159,19 @@ class dsgym:
         c=c.communicate()[0].decode("utf-8")
         #tmp.close()
         if c.split("\n")[-2].startswith(name) or "INFO:" not in b:
+            print(f"{name} a")
             return True
-        elif a.split("\n")[-2].startswith(name):
+        elif a.split("\n")[-2].startswith(name) or "INFO:" not in a:
+            print(f"{name} b")
             return False
         else:
+            print(f"{name} c")
             return True
 
     def setDsInFocus(self):
         self.releaseAll()
         w=WindowMgr()
-        w.find_window_wildcard(".*ARK SOULS.*")
+        w.find_window_wildcard(f".*{GAMEWILDCARD}*")
         try:
             w.set_foreground()
         except:
@@ -188,25 +190,25 @@ class dsgym:
     def CheckAndHandleNotResponding(self):
         while True:
             #Cheat engine might not be responding if it fails to attach debugger
-            dsNotResponding=self.notresponding("DarkSoulsIII.exe")
+            dsNotResponding=self.notresponding(EXECUTABLENAME)
             errorWindowExists=self.window_exists("Error")
-            cheatEngineNotResponding=self.notresponding("cheatengine-x86_64.exe")
+            cheatEngineNotResponding=self.notresponding(CEEXE)
             if(dsNotResponding or errorWindowExists or cheatEngineNotResponding):
                 with not_responding_lock:
                     self.releaseAll()
                     print(f"Game not responding, waiting 5 seconds until restart ds {dsNotResponding} error {errorWindowExists} CE {cheatEngineNotResponding}")
                     PressAndRelease(U)
                     time.sleep(5)
-                    if (self.notresponding("DarkSoulsIII.exe")or self.window_exists("Error") or self.notresponding("cheatengine-x86_64.exe")):
+                    if (self.notresponding(EXECUTABLENAME)or self.window_exists("Error") or self.notresponding(CEEXE)):
                         self.kill_processes()
                         os.system('".\\DarkSoulsIII.CT"')
                         time.sleep(5)
-                        os.system('"'+DARKSOULSDIR+'"')
+                        os.system('"'+ELDENRINGDIR+'"')
                         w=WindowMgr()
                         time.sleep(40)
                         PressAndRelease(T)
                         PressAndRelease(I)
-                        w.find_window_wildcard(".*ARK SOULS.*")
+                        w.find_window_wildcard(f".*{GAMEWILDCARD}*")
                         iter=0
                         print("Spamming E to get into game",iter)
                         while iter<100:
@@ -220,7 +222,7 @@ class dsgym:
                             time.sleep(1)
                             stateDict=self.readState(should_retry=False)
 
-                            if(stateDict["didRead"] and stateDict[areaKey]==self.boss_config["bonfire_area"]):
+                            if(stateDict["didRead"] and stateDict[bossHpKey]==self.boss_config["base_hp"]):
                                 time.sleep(5)
                                 print("Assuming in game now")
                                 PressAndRelease(T)
@@ -229,7 +231,7 @@ class dsgym:
                             elif not stateDict["didRead"]:
                                 print("Didn't read trying to get back into game")
                             else:
-                                print("Area from statedict: ",stateDict[areaKey])                 
+                                print("Basehp from statedict: ",stateDict[bossHpKey])                 
             time.sleep(5)
 
 
@@ -239,8 +241,8 @@ class dsgym:
         for i in range(10):
             time.sleep(1)
             stateDict=self.readState()
-            print(stateDict[areaKey])
-            if(stateDict[areaKey]==self.boss_config["bonfire_area"]):
+            print(stateDict[bossHpKey])
+            if(stateDict[bossHpKey]==self.boss_config["base_hp"] and stateDict["targetAnimationName"]==self.boss_config["idle_animation"]):
                 print("Currently at bonfire area")
                 break
         time.sleep(1)
@@ -258,7 +260,7 @@ class dsgym:
             time.sleep(2)
             #Check whether we have entered boss area
             stateDict=self.readState()
-            if(stateDict[areaKey]==self.boss_config["boss_area"]):
+            if(stateDict["targetAnimationName"]!=self.boss_config["idle_animation"]):
                 self.setCeState(self.boss_config["boss_teleport"],2)
                 PressAndFastRelease(F1)
                 PressAndFastRelease(Q)
@@ -269,10 +271,10 @@ class dsgym:
                 time.sleep(0.2)
                 stateDict = self.readState(1,DOTNETPORT)
                 bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
-                if(stateDict["targetLock"]=="1" and bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
-                    break # Make sure we have target and correct targeted entity by checking hp
-                else:
-                    print("Retrying teleport as we either didn't have target or bosshp was wrong targetlock: ",stateDict["targetLock"], " bossHp: ",bossHp)
+                #if(stateDict["targetLock"]=="1" and bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
+                #    break # Make sure we have target and correct targeted entity by checking hp
+                #else:
+                #    print("Retrying teleport as we either didn't have target or bosshp was wrong targetlock: ",stateDict["targetLock"], " bossHp: ",bossHp)
             elif i%50==49:
                 print("Tried 50 times, killing self and resetting boss")
                 self.suicide_and_set_bonfire()
@@ -367,7 +369,7 @@ class dsgym:
     def reset(self):
         self.setDsInFocus()
         self.releaseAll()
-        self.waitForUnpause()
+        #self.waitForUnpause()
         self.teleToBoss()
         self.setDsInFocus()
         self.set_initial_state()
@@ -392,9 +394,9 @@ class dsgym:
         return stateDict[charHpKey] !=0
 
     def kill_processes(self):
-        os.system("taskkill /f /im  DarkSoulsIII.exe /T")
+        os.system(f"taskkill /f /im  {EXECUTABLENAME} /T")
         # also kill cheat engine
-        os.system("taskkill /f /im  cheatengine-x86_64.exe /T")
+        os.system(f"taskkill /f /im  {CEEXE} /T")
     def check_responding_lock(self):
         not_responding_lock.acquire()
         not_responding_lock.release()
@@ -411,7 +413,7 @@ class dsgym:
         stateDict = self.readState(10,DOTNETPORT)
 
         #Check if we died
-        if(stateDict[charHpKey]=="0" or stateDict[areaKey]!=self.boss_config["boss_area"] or stateDict[areaKey]=="??"):
+        if(stateDict[charHpKey]=="0" or stateDict[charHpKey]=="??"):
             #Unpause game and wait for hp>0
             self.releaseAll()
             PressAndRelease(U)
@@ -431,14 +433,14 @@ class dsgym:
             self.suicide_and_set_bonfire()
             
         #Check if lost target on boss
-        elif stateDict["targetLock"]=="0":
-            print("Lost target, retargeting until i die or 1000 times")
-            numtries=1000
-            while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
-                self.releaseAll()
-                PressAndFastRelease(Q)
-                stateDict=self.readState()
-                numtries = numtries-1      
+        #elif stateDict["targetLock"]=="0":
+        #    print("Lost target, retargeting until i die or 1000 times")
+        #    numtries=1000
+        #    while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
+        #        self.releaseAll()
+        #        PressAndFastRelease(Q)
+        #        stateDict=self.readState()
+        #        numtries = numtries-1      
         #Input action
         self.handleAction(input_actions)    
 
@@ -493,10 +495,10 @@ class dsgym:
         if (abs(diffAngle)>135):
             reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
-        numEstus=self.parseStateDictValue(stateDict,"numEstus")
-        if (self.numEstusLastFrame>numEstus):
-            reward-=ESTUS_NEGATIVE_REWARD
-        self.numEstusLastFrame=numEstus
+        #numEstus=self.parseStateDictValue(stateDict,"numEstus")
+        #if (self.numEstusLastFrame>numEstus):
+        #    reward-=ESTUS_NEGATIVE_REWARD
+        #self.numEstusLastFrame=numEstus
 
         if stateDict[bossHpKey]!="??":
             self.bossHpLastFrame=int(stateDict[bossHpKey])
@@ -585,10 +587,10 @@ class dsgym:
             if input_actions[1] == 3:
                 PressKey(NUM2)
             if input_actions[1] == 4:
-                if self.numEstusLastFrame == 0:
-                    pass
-                else:
-                    PressKey(R)
+                #if self.numEstusLastFrame == 0:
+                #    pass
+                #else:
+                PressKey(R)
             if input_actions[1] == 5:
                 PressKey(NUM4)
         else:
@@ -610,10 +612,10 @@ class dsgym:
             if input_actions == 7:
                 PressKey(NUM2)
             if input_actions == 8:
-                if self.numEstusLastFrame == 0:
-                    pass
-                else:
-                    PressKey(R)
+                #if self.numEstusLastFrame == 0:
+                #    pass
+                #else:
+                PressKey(R)
             if input_actions == 9:
                 PressKey(NUM4)
         
@@ -775,9 +777,9 @@ class dsgym:
         stateToAdd[13]=targetXScaled
         stateToAdd[14]=targetYScaled
         stateToAdd[15]=self.parseStateDictValue(stateDict,"targetedEntityZ")
-        stateToAdd[16]=self.parseStateDictValue(stateDict,"targetMovement1")
-        stateToAdd[17]=self.parseStateDictValue(stateDict,"targetMovement2")
-        stateToAdd[18]=self.parseStateDictValue(stateDict,"targetComboAttack")
+        stateToAdd[16]=self.parseStateDictValue(stateDict,"targetPoise")
+        stateToAdd[17]=self.parseStateDictValue(stateDict,"targetMaxPoise")
+        stateToAdd[18]=self.parseStateDictValue(stateDict,"targetSP")
         heroMaxHp=self.parseStateDictValue(stateDict,"heroMaxHp")
         if heroMaxHp!=0:
             stateToAdd[19]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
@@ -794,10 +796,10 @@ class dsgym:
         stateToAdd[25]=stateDict["reward"]
         stateToAdd[26]=self.timesincecharacterattack
         stateToAdd[27]=self.timesincebossattack
-        estus=self.parseStateDictValue(stateDict,"numEstus")
-        stateToAdd[28]=estus
-        if estus>0:
-            stateToAdd[29]=1
+        #estus=self.parseStateDictValue(stateDict,"numEstus")
+        #stateToAdd[28]=estus
+        #if estus>0:
+        #    stateToAdd[29]=1
         if self.within_reward_range:
             stateToAdd[30]=1
         if targetMaxHp !=0:
