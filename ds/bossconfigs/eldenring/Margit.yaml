@@ -4,12 +4,12 @@ idle_animation: "2000020"
 parryable: False
 parry_animation: "cantbeparried"
 fog_gate_teleport:
- heroX: 19.96924973
- heroZ: -11.72706509
- heroY: -7.051832676
- heroAngle: 0.7588592172
+  heroX: -12.03299713
+  heroY: 0.9481675625
+  heroZ: -11.76802826 
+  heroAngle: 0.761809051
 boss_teleport:
- heroX: -1.88
- heroZ: -4.037
- heroY: -17.39
- heroAngle: 0.68
+  heroX: -35.65
+  heroY: 6.08
+  heroZ: -18.43
+  heroAngle: 0.761809051

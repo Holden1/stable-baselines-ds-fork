@@ -19,7 +19,7 @@ import socket
 import yaml
 
 
-ELDENRINGDIR="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING\Game\eldenring.exe"
+ELDENRINGDIR="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING\Game"
 EXECUTABLENAME="eldenring.exe"
 CEEXE="cheatengine-x86_64-SSE4-AVX2.exe"
 GAMEWILDCARD="LDEN RING"
@@ -72,7 +72,7 @@ class dsgym:
     
     metadata=None
     def __init__(self, isMultiDiscrete=True):
-        with open("bossconfigs/Dancer.yaml", "r") as ymlfile:
+        with open("bossconfigs/eldenring/Margit.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
@@ -84,25 +84,12 @@ class dsgym:
         stateDict=self.readState()
         self.isMultiDiscrete=isMultiDiscrete
 
-        if (isMultiDiscrete):
-            self.no_action=[0,0]
-            #1) WASD Keys:  Discrete 5  - NOOP[0], W[1], A[2], S[3], D[4]  - params: min: 0, max: 4
-            #2) Action:     Discrete 6  - NOOP[0], Jump[1], Attack[2], Block[3], estus[4], , Parry[5] - params: min: 0, max: 5
-            if(self.boss_config["parryable"]):
-                print("Multidiscrete action: Boss is parryable")
-                self.action_space=spaces.MultiDiscrete([5,6])
-            else:
-                print("Multidiscrete action: Boss is NOT parryable")
-                self.action_space=spaces.MultiDiscrete([5,5])
-        else:
-            self.no_action=0
-            #1) WASD Keys:  Discrete 10  - NOOP[0], W[1], A[2], S[3], D[4], Jump[5], Attack[6], Block[7], estus[8], Parry[9]  - params: min: 0, max: 9
-            if(self.boss_config["parryable"]):
-                print("Discrete action: Boss is parryable")
-                self.action_space=spaces.Discrete(10)
-            else:
-                print("Discrete action: Boss is NOT parryable")
-                self.action_space=spaces.Discrete(9)
+
+        self.no_action=[0,0]
+        #1) WASD Keys:  Discrete 5  - NOOP[0], W[1], A[2], S[3], D[4]  - params: min: 0, max: 4
+        #2) Action:     Discrete 6  - NOOP[0], Jump[1], Attack[2], AttackBig[3], estus[4], , Block[5] - params: min: 0, max: 5
+        self.action_space=spaces.MultiDiscrete([5,6])
+        
         
         self.set_initial_state()          
 
@@ -201,9 +188,10 @@ class dsgym:
                     time.sleep(5)
                     if (self.notresponding(EXECUTABLENAME)or self.window_exists("Error") or self.notresponding(CEEXE)):
                         self.kill_processes()
-                        os.system('".\\DarkSoulsIII.CT"')
+                        os.system('".\\eldenring.CT"')
                         time.sleep(5)
-                        os.system('"'+ELDENRINGDIR+'"')
+                        os.chdir(ELDENRINGDIR)
+                        os.startfile('"'+ELDENRINGDIR+'\eldenring.exe"')
                         w=WindowMgr()
                         time.sleep(40)
                         PressAndRelease(T)
@@ -222,7 +210,7 @@ class dsgym:
                             time.sleep(1)
                             stateDict=self.readState(should_retry=False)
 
-                            if(stateDict["didRead"] and stateDict[bossHpKey]==self.boss_config["base_hp"]):
+                            if(stateDict["didRead"] and stateDict[bossHpKey]==str(self.boss_config["base_hp"])):
                                 time.sleep(5)
                                 print("Assuming in game now")
                                 PressAndRelease(T)
@@ -238,30 +226,35 @@ class dsgym:
     def teleToBoss(self):
         print("Teleporting to",self.boss_config["name"])
         self.setDsInFocus()
-        for i in range(10):
+        for i in range(100):
+            self.check_responding_lock()
             time.sleep(1)
             stateDict=self.readState()
-            print(stateDict[bossHpKey])
-            if(stateDict[bossHpKey]==self.boss_config["base_hp"] and stateDict["targetAnimationName"]==self.boss_config["idle_animation"]):
+            if(stateDict[charHpKey]!="0" and stateDict[charHpKey]!="??" and stateDict[bossHpKey]==str(self.boss_config["base_hp"]) and stateDict["targetAnimationName"]==self.boss_config["idle_animation"]):
                 print("Currently at bonfire area")
                 break
+            else:
+                print("Waiting for respawn num:",i,", bossHp: ",stateDict[bossHpKey], " baseHp:", self.boss_config["base_hp"], " anim ", stateDict["targetAnimationName"], " idle: ", self.boss_config["idle_animation"] )
         time.sleep(1)
         for i in range(100):
-            self.waitForUnpause()
+            #self.waitForUnpause()
             self.check_responding_lock()   
             PressAndFastRelease(F1)
-            self.setCeState(self.boss_config["fog_gate_teleport"],2)
+            self.setCeState(self.boss_config["fog_gate_teleport"],1)
             PressAndFastRelease(Q)
-            PressAndFastRelease(F1)
+            PressAndFastRelease(F2)
             PressAndRelease(U)#Normal speed
             time.sleep(1)
-            PressAndRelease(E)
-            PressAndRelease(E)#Twice, bloodstain can be at entrance
-            time.sleep(2)
+            print("pressing E")
+            PressAndFastRelease(E)
+            PressAndFastRelease(E)#Twice, bloodstain can be at entrance
+            time.sleep(4)
             #Check whether we have entered boss area
             stateDict=self.readState()
             if(stateDict["targetAnimationName"]!=self.boss_config["idle_animation"]):
-                self.setCeState(self.boss_config["boss_teleport"],2)
+                print("Inside arena")
+                PressAndFastRelease(F1)
+                self.setCeState(self.boss_config["boss_teleport"],1)
                 PressAndFastRelease(F1)
                 PressAndFastRelease(Q)
                 PressAndFastRelease(F2)
@@ -271,14 +264,14 @@ class dsgym:
                 time.sleep(0.2)
                 stateDict = self.readState(1,DOTNETPORT)
                 bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
-                #if(stateDict["targetLock"]=="1" and bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
-                #    break # Make sure we have target and correct targeted entity by checking hp
-                #else:
-                #    print("Retrying teleport as we either didn't have target or bosshp was wrong targetlock: ",stateDict["targetLock"], " bossHp: ",bossHp)
-            elif i%50==49:
-                print("Tried 50 times, killing self and resetting boss")
+                if(bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
+                    break # Make sure we have target and correct targeted entity by checking hp
+                else:
+                    print("Retrying teleport as bosshp was wrong bossHp: ",bossHp)
+            else:
+                print("Couldn't get to boss, killing self and resetting boss")
                 self.suicide_and_set_bonfire()
-                time.sleep(20)
+                time.sleep(10)
 
         else:   #For loop else, not if else
                 #didn't get to boss area in many tries, commit sudoku and kill both processes
@@ -298,7 +291,6 @@ class dsgym:
         else:
             time.sleep(1)
     def suicide_and_set_bonfire(self):
-        self.setCeState({"LastBonfire": self.boss_config["bonfire_id"]})
         PressAndRelease(F2)
         PressAndRelease(F3)
 
@@ -353,7 +345,7 @@ class dsgym:
                     break
             finally:
                 self.socket.close()
-            if not loglines or len(loglines.split(";;"))<22:
+            if not loglines:
                 continue
             for line in loglines.split(";;"):
                 try:
@@ -568,108 +560,57 @@ class dsgym:
 
     def handleAction(self,input_actions):
         self.releasePreviousActions(self.prev_input_actions,input_actions)
-        if(self.isMultiDiscrete):
-            if input_actions[0] == 1:
-                PressKey(W)
-            if input_actions[0] == 2:
-                PressKey(A)
-            if input_actions[0] == 3:
-                PressKey(S)
-            if input_actions[0] == 4:
-                PressKey(D)
-            if input_actions[1] == 1:
-                PressKey(SPACE)
-            if input_actions[1] == 2:
-                self.timesincecharacterattack=0
-                PressKey(NUM1)
-            else:
-                self.timesincecharacterattack+=1
-            if input_actions[1] == 3:
-                PressKey(NUM2)
-            if input_actions[1] == 4:
-                #if self.numEstusLastFrame == 0:
-                #    pass
-                #else:
-                PressKey(R)
-            if input_actions[1] == 5:
-                PressKey(NUM4)
-        else:
-            if input_actions == 1:
-                PressKey(W)
-            if input_actions == 2:
-                PressKey(A)
-            if input_actions == 3:
-                PressKey(S)
-            if input_actions== 4:
-                PressKey(D)
-            if input_actions== 5:
-                PressKey(SPACE)
-            if input_actions == 6:
-                self.timesincecharacterattack=0
-                PressKey(NUM1)
-            else:
-                self.timesincecharacterattack+=1
-            if input_actions == 7:
-                PressKey(NUM2)
-            if input_actions == 8:
-                #if self.numEstusLastFrame == 0:
-                #    pass
-                #else:
-                PressKey(R)
-            if input_actions == 9:
-                PressKey(NUM4)
+        if input_actions[0] == 1:
+            PressKey(W)
+        if input_actions[0] == 2:
+            PressKey(A)
+        if input_actions[0] == 3:
+            PressKey(S)
+        if input_actions[0] == 4:
+            PressKey(D)
+        if input_actions[1] == 1:
+            PressKey(SPACE)
+        if input_actions[1] == 2:
+            PressKey(NUM1)
+        if input_actions[1] == 3:
+            PressKey(NUM2)
+        if input_actions[1] == 4:
+            PressKey(R)
+        if input_actions[1] == 5:
+            PressKey(NUM4)
         
+        
+        if input_actions[1] == 2 or input_actions[1] == 3 :
+            self.timesincecharacterattack=0
+        else:
+            self.timesincecharacterattack+=1
+
         self.prev_input_actions=input_actions
 
     def releasePreviousActions(self, prevaction, curaction):
         keys = []
-        if(self.isMultiDiscrete):
-            if prevaction[0] != curaction[0]:
-                if prevaction[0] ==1:
-                    keys.append(W)
-                if prevaction[0] ==2:
-                    keys.append(A)
-                if prevaction[0] ==3:
-                    keys.append(S)
-                if prevaction[0] ==4:
-                    keys.append(D)
-            
-            if prevaction[1] != curaction[1]:
-                if prevaction[1] ==1:        
-                    keys.append(SPACE)
-                if prevaction[1] ==2:
-                    keys.append(NUM1)
-                if prevaction[1] ==3:
-                    keys.append(NUM2)
-                if prevaction[1] ==4:
-                    keys.append(R)
-                if prevaction[1] ==5:
-                    keys.append(NUM4)
-        else:
-            if(prevaction==curaction):
-                return
-            else:
-                if curaction <5: #only release movement key if new movement detected 
-                    if curaction !=1:
-                        keys.append(W)
-                    if curaction !=2:
-                        keys.append(A)
-                    if curaction !=3:
-                        keys.append(S)
-                    if curaction !=4:
-                        keys.append(D)
-                if curaction >=5: #only release action key if new action is detected
-                    if curaction !=5:        
-                        keys.append(SPACE)
-                    if curaction !=6:
-                        keys.append(NUM1)
-                    if curaction !=7:
-                        keys.append(NUM2)
-                    if curaction !=8:
-                        keys.append(NUM4)
-                    if curaction !=9:
-                        keys.append(R)
-
+        if prevaction[0] != curaction[0]:
+            if prevaction[0] ==1:
+                keys.append(W)
+            if prevaction[0] ==2:
+                keys.append(A)
+            if prevaction[0] ==3:
+                keys.append(S)
+            if prevaction[0] ==4:
+                keys.append(D)
+        
+        if prevaction[1] != curaction[1]:
+            if prevaction[1] ==1:        
+                keys.append(SPACE)
+            if prevaction[1] ==2:
+                keys.append(NUM1)
+            if prevaction[1] ==3:
+                keys.append(NUM2)
+            if prevaction[1] ==4:
+                keys.append(R)
+            if prevaction[1] ==5:
+                keys.append(NUM4)
+        
         ReleaseKeys(keys)
 
 #Function makes it possible to hold key pressed, valuable for blocking or moving
@@ -766,11 +707,10 @@ class dsgym:
         heroYScaled=(self.parseStateDictValue(stateDict,"heroY") - teleY)/10
 
         stateToAdd=np.zeros(num_state_scalars)
-        if(self.isMultiDiscrete):
-            stateToAdd[action_to_add[0]]=1
-            stateToAdd[action_to_add[1]+5]=1
-        else:
-            stateToAdd[action_to_add]=1
+
+        stateToAdd[action_to_add[0]]=1
+        stateToAdd[action_to_add[1]+5]=1
+
         targetMaxHp=self.parseStateDictValue(stateDict,"TargetBaseMaxHp")
         if targetMaxHp !=0:
             stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/targetMaxHp
