@@ -63,11 +63,13 @@ namespace DsCheatEngineServer
 
         private static string getDsState(Dictionary<string, long[]> cheatEngineAddressDictionary)
         {
-            Process process = Process.GetProcessesByName("Eldenring")[0];
+            Process process = Process.GetProcessesByName("eldenring")[0];
             ProcessMemory pm = ProcessMemory.ForProcess(process);
 
 
             string state = getStateFromDict(cheatEngineAddressDictionary, pm);
+            Console.WriteLine("Read this:");
+            Console.WriteLine(state);
             return state;
         }
 

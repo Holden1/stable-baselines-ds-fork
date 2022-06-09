@@ -2,6 +2,8 @@ name: "Margit"
 base_hp: 4174
 idle_animation: "2000020"
 parryable: False
+boss_area: "6101010"
+bonfire_area: "6101000"
 parry_animation: "cantbeparried"
 fog_gate_teleport:
   heroX: -12.03299713

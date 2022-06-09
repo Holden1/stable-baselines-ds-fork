@@ -19,35 +19,39 @@ import socket
 import yaml
 
 
-ELDENRINGDIR="C:\Program Files (x86)\Steam\steamapps\common\ELDEN RING\Game"
+ELDENRINGDIR="C:\\Program Files (x86)\\Steam\\steamapps\\common\\ELDEN RING\\Game"
+CHEATTABLEDIR="C:\\Users\\Nikolaj\\Documents\\stable-baselines-ds-fork\\ds"
 EXECUTABLENAME="eldenring.exe"
 CEEXE="cheatengine-x86_64-SSE4-AVX2.exe"
 GAMEWILDCARD="LDEN RING"
 FRAME_DIFF=0.2
-SAVE_PROGRESS_SHADOWPLAY=False
+SAVE_PROGRESS_SHADOWPLAY=True
 SAVE_KILLS_SHADOWPLAY=True
 
-HEALTH_REWARD_MULTIPLIER=2.5
+HEALTH_REWARD_MULTIPLIER=5.0
 REWARD_DISTANCE=5
-ESTUS_NEGATIVE_REWARD=0.2
+ESTUS_NEGATIVE_REWARD=0.1
 ESTUS_HP_SCALING=1.0
 PARRY_REWARD=0.1
 TIMESTEPS_DEFENSIVE_BEHAVIOR=2000
 DEFENSIVE_BEHAVIOR_NEGATIVE_REWARD =0.002
-BEHIND_REWARD=0.002
-NOT_IN_FRONT_REWARD=0.001
-CLOSE_DISTANCE_REWARD=0.000
+BEHIND_REWARD=0.0
+NOT_IN_FRONT_REWARD=0.0
+CLOSE_DISTANCE_REWARD=0.001
 BELOW_HALF_HP_NEGATIVE_REWARD=0.0
+NOT_IN_FRONT_DEGREES=60
+BEHIND_DEGREES=135
 
 
 not_responding_lock=threading.Lock()
 
+areaKey="playRegionId"
 charHpKey="heroHp"
 charSpKey="heroSp"
 bossHpKey="targetedEntityHp"
 
 num_state_scalars=272
-num_history_states=5
+num_history_states=2
 num_prev_animations=3
 
 parryAnimationName='DamageParryEnemy1' 
@@ -149,7 +153,6 @@ class dsgym:
             print(f"{name} a")
             return True
         elif a.split("\n")[-2].startswith(name) or "INFO:" not in a:
-            print(f"{name} b")
             return False
         else:
             print(f"{name} c")
@@ -188,12 +191,13 @@ class dsgym:
                     time.sleep(5)
                     if (self.notresponding(EXECUTABLENAME)or self.window_exists("Error") or self.notresponding(CEEXE)):
                         self.kill_processes()
-                        os.system('".\\eldenring.CT"')
+                        os.system('"'+CHEATTABLEDIR+'\eldenring.CT"')
                         time.sleep(5)
                         os.chdir(ELDENRINGDIR)
                         os.startfile('"'+ELDENRINGDIR+'\eldenring.exe"')
                         w=WindowMgr()
-                        time.sleep(40)
+                        time.sleep(20)
+                        PressAndRelease(T)
                         PressAndRelease(T)
                         PressAndRelease(I)
                         w.find_window_wildcard(f".*{GAMEWILDCARD}*")
@@ -214,6 +218,7 @@ class dsgym:
                                 time.sleep(5)
                                 print("Assuming in game now")
                                 PressAndRelease(T)
+                                PressAndRelease(T)
                                 ReleaseKey(E)
                                 break #To start monitoring again if something is not responding
                             elif not stateDict["didRead"]:
@@ -226,17 +231,24 @@ class dsgym:
     def teleToBoss(self):
         print("Teleporting to",self.boss_config["name"])
         self.setDsInFocus()
-        for i in range(100):
-            self.check_responding_lock()
+        for j in range(100):
+            for i in range(100):
+                self.check_responding_lock()
+                time.sleep(1)
+                stateDict=self.readState()
+                if(stateDict[charHpKey]!="0" and stateDict[charHpKey]!="??" and stateDict[bossHpKey]==str(self.boss_config["base_hp"]) and stateDict[areaKey]==self.boss_config["bonfire_area"]):
+                    print("Currently at bonfire area")
+                    break
+                else:
+                    print("Waiting for respawn num:",i,", bossHp: ",stateDict[bossHpKey], " baseHp:", self.boss_config["base_hp"], " anim ", stateDict["targetAnimationName"], " idle: ", self.boss_config["idle_animation"] )
+                    if(i>60):
+                        print("Loading screen shouldn't take this long, killing processes and waiting for restart thread to restart game")
+                        self.kill_processes()
+                        time.sleep(20)
+                        self.check_responding_lock()
             time.sleep(1)
-            stateDict=self.readState()
-            if(stateDict[charHpKey]!="0" and stateDict[charHpKey]!="??" and stateDict[bossHpKey]==str(self.boss_config["base_hp"]) and stateDict["targetAnimationName"]==self.boss_config["idle_animation"]):
-                print("Currently at bonfire area")
-                break
-            else:
-                print("Waiting for respawn num:",i,", bossHp: ",stateDict[bossHpKey], " baseHp:", self.boss_config["base_hp"], " anim ", stateDict["targetAnimationName"], " idle: ", self.boss_config["idle_animation"] )
-        time.sleep(1)
-        for i in range(100):
+            #self.sendString("updateAddress \n",DOTNETPORT)
+            
             #self.waitForUnpause()
             self.check_responding_lock()   
             PressAndFastRelease(F1)
@@ -251,7 +263,7 @@ class dsgym:
             time.sleep(4)
             #Check whether we have entered boss area
             stateDict=self.readState()
-            if(stateDict["targetAnimationName"]!=self.boss_config["idle_animation"]):
+            if(stateDict[areaKey]==self.boss_config["boss_area"]):
                 print("Inside arena")
                 PressAndFastRelease(F1)
                 self.setCeState(self.boss_config["boss_teleport"],1)
@@ -260,9 +272,9 @@ class dsgym:
                 PressAndFastRelease(F2)
                 PressAndFastRelease(T)
                 time.sleep(0.2)
-                self.sendString("updateAddress \n",DOTNETPORT)
+                #self.sendString("updateAddress \n",DOTNETPORT)
                 time.sleep(0.2)
-                stateDict = self.readState(1,DOTNETPORT)
+                stateDict = self.readState(1)
                 bossHp=self.parseStateDictValue(stateDict,"targetedEntityHp")
                 if(bossHp!=0 and bossHp < (self.boss_config["base_hp"]*2)):
                     break # Make sure we have target and correct targeted entity by checking hp
@@ -271,13 +283,7 @@ class dsgym:
             else:
                 print("Couldn't get to boss, killing self and resetting boss")
                 self.suicide_and_set_bonfire()
-                time.sleep(10)
-
-        else:   #For loop else, not if else
-                #didn't get to boss area in many tries, commit sudoku and kill both processes
-            self.suicide_and_set_bonfire()
-            print("Couldn't get to boss in 50 tries, something wrong, killing processes as well")
-            self.kill_processes()
+                time.sleep(5)
 
     def kill_or_wait(self,start_read):
         elapsed = int(time.time() - start_read)
@@ -402,7 +408,7 @@ class dsgym:
         
         self.check_responding_lock()
         self.ensure_framerate()
-        stateDict = self.readState(10,DOTNETPORT)
+        stateDict = self.readState(10)
 
         #Check if we died
         if(stateDict[charHpKey]=="0" or stateDict[charHpKey]=="??"):
@@ -412,7 +418,7 @@ class dsgym:
             terminal=True
             reward=-1
         #Check if we killed the boss or missing boss into
-        elif stateDict[bossHpKey]=="0" or stateDict[bossHpKey]=="??":
+        elif stateDict[bossHpKey]=="0" or stateDict[areaKey]!=self.boss_config["boss_area"] or stateDict[bossHpKey]=="??":
             self.releaseAll()
             if stateDict[bossHpKey]=="0":
                 terminal=True
@@ -425,14 +431,17 @@ class dsgym:
             self.suicide_and_set_bonfire()
             
         #Check if lost target on boss
-        #elif stateDict["targetLock"]=="0":
-        #    print("Lost target, retargeting until i die or 1000 times")
-        #    numtries=1000
-        #    while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
-        #        self.releaseAll()
-        #        PressAndFastRelease(Q)
-        #        stateDict=self.readState()
-        #        numtries = numtries-1      
+        elif stateDict["targetLock"]=="0":
+            print("Lost target, retargeting until i die or 1000 times")
+            numtries=1000
+            while stateDict["targetLock"]=="0" and stateDict[charHpKey]!="0" and numtries >0:
+                self.releaseAll()
+                PressAndFastRelease(Q)
+                stateDict=self.readState()
+                numtries = numtries-1
+            if numtries <=1:
+                print("Couldn't target boss, will commit suicide")
+                self.suicide_and_set_bonfire()      
         #Input action
         self.handleAction(input_actions)    
 
@@ -482,15 +491,15 @@ class dsgym:
 
         #Reward for being behind boss
         diffAngle = self.calc_diff_angle(stateDict)
-        if (abs(diffAngle)>45):
+        if (abs(diffAngle)>NOT_IN_FRONT_DEGREES):
             reward+=NOT_IN_FRONT_REWARD
-        if (abs(diffAngle)>135):
+        if (abs(diffAngle)>BEHIND_DEGREES):
             reward+=BEHIND_REWARD
         #penalize using estus to prevent spam
-        #numEstus=self.parseStateDictValue(stateDict,"numEstus")
-        #if (self.numEstusLastFrame>numEstus):
-        #    reward-=ESTUS_NEGATIVE_REWARD
-        #self.numEstusLastFrame=numEstus
+        numEstus=self.parseStateDictValue(stateDict,"numEstus")
+        if (self.numEstusLastFrame>numEstus):
+            reward-=ESTUS_NEGATIVE_REWARD
+        self.numEstusLastFrame=numEstus
 
         if stateDict[bossHpKey]!="??":
             self.bossHpLastFrame=int(stateDict[bossHpKey])
@@ -575,7 +584,10 @@ class dsgym:
         if input_actions[1] == 3:
             PressKey(NUM2)
         if input_actions[1] == 4:
-            PressKey(R)
+            if self.numEstusLastFrame<=1:
+                pass
+            else:
+                PressKey(R)
         if input_actions[1] == 5:
             PressKey(NUM4)
         
@@ -644,7 +656,7 @@ class dsgym:
             timeToSleep = FRAME_DIFF - elapsed
             if timeToSleep > 0:
                 time.sleep(timeToSleep)
-                #print("New elapsed ",time.time()-start_time)
+                #print("Slept ",timeToSleep)
             else:
                 print("Didn't sleep:",elapsed)
         self.start_time = time.time()
@@ -673,9 +685,7 @@ class dsgym:
         targetedEntityX=self.parseStateDictValue(stateDict,"targetedEntityX")
         targetedEntityY=self.parseStateDictValue(stateDict,"targetedEntityY")
         
-        angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY)+math.pi)*57.29
-        if angleBetween >180:
-            angleBetween= 360-angleBetween
+        angleBetween=(math.atan2(targetedEntityX-heroX,targetedEntityY-heroY))*57.29
         targetAngle=targetAngle*90
 
         return targetAngle-angleBetween
@@ -736,18 +746,18 @@ class dsgym:
         stateToAdd[25]=stateDict["reward"]
         stateToAdd[26]=self.timesincecharacterattack
         stateToAdd[27]=self.timesincebossattack
-        #estus=self.parseStateDictValue(stateDict,"numEstus")
-        #stateToAdd[28]=estus
-        #if estus>0:
-        #    stateToAdd[29]=1
+        estus=self.parseStateDictValue(stateDict,"numEstus")
+        stateToAdd[28]=estus
+        if estus>0:
+            stateToAdd[29]=1
         if self.within_reward_range:
             stateToAdd[30]=1
         if targetMaxHp !=0:
             stateToAdd[31]=self.bosshpdiff/targetMaxHp
         if heroMaxHp!=0:
             stateToAdd[32]=self.charhpdiff/heroMaxHp
-        stateToAdd[33]=self.bossAnimationFrameCount
-        stateToAdd[34]=self.charAnimationFrameCount
+        stateToAdd[33]=self.parseStateDictValue(stateDict,"heroAnimationTime")
+        stateToAdd[34]=self.parseStateDictValue(stateDict,"targetAnimationTime")
         stateToAdd[35]=self.timesinceherolosthp
 
         diffAngle = self.calc_diff_angle(stateDict)
@@ -755,9 +765,9 @@ class dsgym:
         stateToAdd[36]=diffAngleScaled
         stateToAdd[37]=abs(diffAngleScaled)
         absDiff= abs(diffAngle)
-        if absDiff>135:
+        if absDiff>BEHIND_DEGREES:
             stateToAdd[38]=1
-        elif absDiff<=135 and absDiff>=45:
+        elif absDiff<=BEHIND_DEGREES and absDiff>=NOT_IN_FRONT_DEGREES:
             if diffAngle>0:
                 stateToAdd[39]=1
             else:
