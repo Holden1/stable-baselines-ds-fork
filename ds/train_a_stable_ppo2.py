@@ -17,9 +17,9 @@ def train(num_timesteps,model_to_load):
         env = DummyVecEnv([dsgym])
         #env = VecNormalize(env)
         policy=MlpPolicy
-        lr=3e-4
+        lr=2.5e-4
 
-        model = PPO2(policy=policy, env=env, n_steps=256, nminibatches=1, lam=0.95, gamma=0.99, noptepochs=10,
+        model = PPO2(policy=policy, env=env, n_steps=4096*2, nminibatches=16*4, lam=0.95, gamma=0.99, noptepochs=10,
                  ent_coef=0.01, learning_rate=lr, cliprange=0.2)
         if model_to_load:
             env = DummyVecEnv([dsgym])
@@ -46,7 +46,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--load-dir", type=str, default=None,
                         help="directory to force load model from and continue training")
-    logger.configure("D:/openAi/ppo2/margit/"+time.strftime("%Y_%m_%d-%H_%M_%S"),["tensorboard","stdout"])
+    logger.configure("D:/openAi/ppo2/godrick/"+time.strftime("%Y_%m_%d-%H_%M_%S"),["tensorboard","stdout"])
     args = parser.parse_args()
     train(num_timesteps=10000000,model_to_load=args.load_dir)
 

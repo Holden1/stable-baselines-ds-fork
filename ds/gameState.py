@@ -6,7 +6,7 @@ from grabber import Grabber
 import time
 import os
 import sys
-from directkeys import W,A,S,D,P,U,E,Q,T,L,I,R,F1,F2,F3,F11,NUM1,NUM2,NUM4,SPACE,G,E,PressKey,ReleaseKey,ReleaseKeys,PressAndRelease,PressAndFastRelease
+from directkeys import W,A,S,D,P,U,E,Q,T,L,I,R,F,ESC,F1,F2,F3,F11,NUM1,NUM2,NUM4,SPACE,G,E,PressKey,ReleaseKey,ReleaseKeys,PressAndRelease,PressAndFastRelease
 from numpy import genfromtxt
 from windowMgr import WindowMgr
 import os
@@ -76,7 +76,7 @@ class dsgym:
     
     metadata=None
     def __init__(self, isMultiDiscrete=True):
-        with open("bossconfigs/eldenring/Margit.yaml", "r") as ymlfile:
+        with open("bossconfigs/eldenring/Godrick.yaml", "r") as ymlfile:
             self.boss_config = yaml.safe_load(ymlfile)
         self.bossAnimationSet = []
         self.charAnimationSet = []
@@ -91,8 +91,8 @@ class dsgym:
 
         self.no_action=[0,0]
         #1) WASD Keys:  Discrete 5  - NOOP[0], W[1], A[2], S[3], D[4]  - params: min: 0, max: 4
-        #2) Action:     Discrete 6  - NOOP[0], Jump[1], Attack[2], AttackBig[3], estus[4], , Block[5] - params: min: 0, max: 5
-        self.action_space=spaces.MultiDiscrete([5,6])
+        #2) Action:     Discrete 6  - NOOP[0], Space[1], Attack[2], AttackBig[3], estus[4], , Block[5], Jump[6] - params: min: 0, max: 5
+        self.action_space=spaces.MultiDiscrete([5,7])
         
         
         self.set_initial_state()          
@@ -197,7 +197,8 @@ class dsgym:
                         os.startfile('"'+ELDENRINGDIR+'\eldenring.exe"')
                         w=WindowMgr()
                         time.sleep(20)
-                        PressAndRelease(T)
+                        PressAndRelease(L)
+                        time.sleep(1)
                         PressAndRelease(T)
                         PressAndRelease(I)
                         w.find_window_wildcard(f".*{GAMEWILDCARD}*")
@@ -217,7 +218,8 @@ class dsgym:
                             if(stateDict["didRead"] and stateDict[bossHpKey]==str(self.boss_config["base_hp"])):
                                 time.sleep(5)
                                 print("Assuming in game now")
-                                PressAndRelease(T)
+                                PressAndRelease(L)
+                                time.sleep(1)
                                 PressAndRelease(T)
                                 ReleaseKey(E)
                                 break #To start monitoring again if something is not responding
@@ -236,7 +238,7 @@ class dsgym:
                 self.check_responding_lock()
                 time.sleep(1)
                 stateDict=self.readState()
-                if(stateDict[charHpKey]!="0" and stateDict[charHpKey]!="??" and stateDict[bossHpKey]==str(self.boss_config["base_hp"]) and stateDict[areaKey]==self.boss_config["bonfire_area"]):
+                if(stateDict[charHpKey]!="0" and stateDict[charHpKey]!="??" and stateDict[areaKey]==self.boss_config["bonfire_area"]):
                     print("Currently at bonfire area")
                     break
                 else:
@@ -253,7 +255,7 @@ class dsgym:
             self.check_responding_lock()   
             PressAndFastRelease(F1)
             self.setCeState(self.boss_config["fog_gate_teleport"],1)
-            PressAndFastRelease(Q)
+            #PressAndFastRelease(Q)
             PressAndFastRelease(F2)
             PressAndRelease(U)#Normal speed
             time.sleep(1)
@@ -420,7 +422,9 @@ class dsgym:
         #Check if we killed the boss or missing boss into
         elif stateDict[bossHpKey]=="0" or stateDict[areaKey]!=self.boss_config["boss_area"] or stateDict[bossHpKey]=="??":
             self.releaseAll()
-            if stateDict[bossHpKey]=="0":
+            #check that we ACTUALLY killed the boss by checking that it was below half hp last frame
+            #This prevents bug where we cannot get boss info and its hp is set to zero
+            if stateDict[bossHpKey]=="0" and self.bossHpLastFrame<(self.boss_config["base_hp"])/2:
                 terminal=True
                 print("killed boss")
                 PressAndRelease(G)
@@ -465,9 +469,10 @@ class dsgym:
             if heroMaxHp != 0:
                 if(self.charhpdiff <0):
                     reward-=(self.charhpdiff/heroMaxHp)*ESTUS_HP_SCALING
+                    self.timesinceherolosthp+=1
                 else:
                     reward-=self.charhpdiff/heroMaxHp
-            self.timesinceherolosthp=0
+                    self.timesinceherolosthp=0
         else:
             self.timesinceherolosthp+=1
         
@@ -590,6 +595,8 @@ class dsgym:
                 PressKey(R)
         if input_actions[1] == 5:
             PressKey(NUM4)
+        if input_actions[1] == 6:
+            PressKey(F)
         
         
         if input_actions[1] == 2 or input_actions[1] == 3 :
@@ -622,6 +629,8 @@ class dsgym:
                 keys.append(R)
             if prevaction[1] ==5:
                 keys.append(NUM4)
+            if prevaction[1] ==5:
+                keys.append(F)
         
         ReleaseKeys(keys)
 
@@ -706,16 +715,6 @@ class dsgym:
             self.bossAnimationSet=loadedobj["bossAnimation"]
             self.charAnimationSet=loadedobj["charAnimation"]
     def add_state(self,action_to_add,stateDict):
-
-        teleX=self.boss_config["boss_teleport"]["heroX"]
-        teleY=self.boss_config["boss_teleport"]["heroY"]
-        teleZ=self.boss_config["boss_teleport"]["heroZ"]
-
-        targetXScaled=(self.parseStateDictValue(stateDict,"targetedEntityX") - teleX)/10
-        targetYScaled=(self.parseStateDictValue(stateDict,"targetedEntityY") - teleY)/10
-        heroXScaled=(self.parseStateDictValue(stateDict,"heroX") - teleX)/10
-        heroYScaled=(self.parseStateDictValue(stateDict,"heroY") - teleY)/10
-
         stateToAdd=np.zeros(num_state_scalars)
 
         stateToAdd[action_to_add[0]]=1
@@ -724,8 +723,8 @@ class dsgym:
         targetMaxHp=self.parseStateDictValue(stateDict,"TargetBaseMaxHp")
         if targetMaxHp !=0:
             stateToAdd[12]=self.parseStateDictValue(stateDict,"targetedEntityHp")/targetMaxHp
-        stateToAdd[13]=targetXScaled
-        stateToAdd[14]=targetYScaled
+        stateToAdd[13]=self.parseStateDictValue(stateDict,"targetedEntityX")
+        stateToAdd[14]=self.parseStateDictValue(stateDict,"targetedEntityY")
         stateToAdd[15]=self.parseStateDictValue(stateDict,"targetedEntityZ")
         stateToAdd[16]=self.parseStateDictValue(stateDict,"targetPoise")
         stateToAdd[17]=self.parseStateDictValue(stateDict,"targetMaxPoise")
@@ -735,8 +734,8 @@ class dsgym:
             stateToAdd[19]=self.parseStateDictValue(stateDict,"heroHp")/heroMaxHp
             if self.parseStateDictValue(stateDict,"heroHp") == heroMaxHp:
                 stateToAdd[20]=1
-        stateToAdd[21]=heroXScaled
-        stateToAdd[22]=heroYScaled
+        stateToAdd[21]=self.parseStateDictValue(stateDict,"heroX")
+        stateToAdd[22]=self.parseStateDictValue(stateDict,"heroY")
 
         dist=self.calc_dist(stateDict)
         stateToAdd[23]=dist
@@ -796,8 +795,10 @@ class dsgym:
             for i in range(7):
                 stateToAdd[historicalActionStartIndex+i+(14*j)]=bossAnimationAsBinary[i]
             for i in range(7):
-                stateToAdd[historicalActionStartIndex+7+i+(14*j)]=charAnimationAsBinary[i]      
-
+                stateToAdd[historicalActionStartIndex+7+i+(14*j)]=charAnimationAsBinary[i]
+        #In case of nan/inf/-inf return 0.0
+        #stateToAdd = np.nan_to_num(stateToAdd,True,0.0,0.0,0.0)
+        #stateToAdd = stateToAdd.clip(-1000,10000)
         if self.fill_frame_buffer:
             for _ in range(num_history_states):
                 self.prev_state.append(stateToAdd)
